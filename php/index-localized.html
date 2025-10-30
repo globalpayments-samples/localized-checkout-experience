@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="page.title">Global Payments - Localized Checkout</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://globalpayments-samples.github.io/css/styles.css">
+    <style>
+        .credit-card-card-expiration, .credit-card-card-cvv { margin: 0 !important; }
+        .gp-hidden { display: none !important; }
+
+        /* Localization Selectors */
+        .localization-controls {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .locale-selector, .currency-selector {
+            flex: 1;
+        }
+
+        .locale-selector label, .currency-selector label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .locale-selector select, .currency-selector select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-size: 14px;
+            background-color: white;
+            cursor: pointer;
+        }
+
+        .locale-selector select:focus, .currency-selector select:focus {
+            outline: none;
+            border-color: #0066cc;
+            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+        }
+
+        /* Transaction Success */
+        .transaction-success {
+            background: #e8f5e9;
+            border: 1px solid #4caf50;
+            border-radius: 8px;
+            padding: 24px;
+            margin: 24px 0;
+        }
+
+        .transaction-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 16px 0;
+        }
+
+        .info-item {
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 16px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        /* Loading state */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0066cc;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="gp-header">
+        <div class="gp-container">
+            <div class="gp-header-content">
+                <div class="gp-logo">
+                    <picture>
+                        <source media="(min-width: 768px)" srcset="https://globalpayments-samples.github.io/assets/img/GP_logo.svg">
+                        <img src="https://globalpayments-samples.github.io/assets/img/GP_favicon.svg" alt="Global Payments" style="height: 32px; width: auto;">
+                    </picture>
+                </div>
+                <nav class="gp-header-nav">
+                    <a href="https://developer.globalpay.com/">Documentation</a>
+                    <a href="https://developer.globalpay.com/api">API Reference</a>
+                    <a href="https://developer.globalpay.com/sdks">SDKs</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <div class="gp-container">
+        <!-- Page Title -->
+        <h1 class="gp-page-title" data-i18n="page.title">Localized Checkout Experience</h1>
+        <p class="gp-page-subtitle" data-i18n="page.description">Complete your payment securely in your preferred language and currency</p>
+
+        <!-- Localization Controls -->
+        <div class="localization-controls">
+            <div class="locale-selector">
+                <label for="language-selector" data-i18n="form.language">Language</label>
+                <select id="language-selector">
+                    <option value="en">🇺🇸 English</option>
+                    <option value="es">🇪🇸 Español</option>
+                    <option value="fr">🇫🇷 Français</option>
+                    <option value="de">🇩🇪 Deutsch</option>
+                    <option value="pt">🇵🇹 Português</option>
+                </select>
+            </div>
+
+            <div class="currency-selector">
+                <label for="currency-selector" data-i18n="form.currency">Currency</label>
+                <select id="currency-selector-dropdown">
+                    <option value="USD">🇺🇸 USD - US Dollar ($)</option>
+                    <option value="EUR">🇪🇺 EUR - Euro (€)</option>
+                    <option value="GBP">🇬🇧 GBP - British Pound (£)</option>
+                    <option value="CAD">🇨🇦 CAD - Canadian Dollar (C$)</option>
+                    <option value="AUD">🇦🇺 AUD - Australian Dollar (A$)</option>
+                    <option value="JPY">🇯🇵 JPY - Japanese Yen (¥)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Payment Form Card -->
+        <div class="gp-card">
+            <div class="gp-card-header">
+                <h2 class="gp-card-title" data-i18n="form.title">Payment Information</h2>
+                <p class="gp-card-description" data-i18n="page.description">
+                    Enter payment details below to process a charge.
+                </p>
+            </div>
+
+            <form id="payment-form" class="gp-form">
+                <div class="gp-form-group">
+                    <label for="amount" class="gp-label" data-i18n="form.amount">Amount</label>
+                    <input type="number" id="amount" name="amount" class="gp-input" min="0.01" step="0.01" value="25.00" required>
+                </div>
+
+                <div class="gp-form-group">
+                    <label for="billing_zip" class="gp-label" data-i18n="form.billing_zip">Billing ZIP Code</label>
+                    <input type="text" id="billing_zip" name="billing_zip" class="gp-input" placeholder="12345" required>
+                </div>
+
+                <!-- Test Card Helper -->
+                <div class="gp-form-group" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                    <label for="test-card-select" class="gp-label" style="margin-bottom: 8px;">
+                        🧪 Use Global Payments Test Card:
+                    </label>
+                    <select id="test-card-select" class="gp-select">
+                        <option value="">Select a test card...</option>
+                        <option value="visa">Visa Success - 4263970000005262</option>
+                        <option value="mastercard">Mastercard Success - 5425230000004415</option>
+                        <option value="amex">American Express Success - 374101000000608</option>
+                    </select>
+                    <small style="color: #6c757d; font-size: 12px; margin-top: 4px; display: block;">
+                        These are official Global Payments test cards. Select to auto-fill the payment form.
+                    </small>
+                </div>
+
+                <div class="gp-form-group">
+                    <label class="gp-label" data-i18n="form.card_number">Credit Card Information</label>
+                    <div id="credit-card"></div>
+                </div>
+
+                <!-- Hidden field to store the token -->
+                <input type="hidden" id="payment-token" name="paymentToken">
+
+                <!-- Submit Button -->
+                <button type="submit" class="gp-button gp-button-primary" id="submit-button">
+                    <span data-i18n="button.process_payment">Process Payment</span>
+                </button>
+            </form>
+
+            <!-- Transaction Success Display -->
+            <div id="transaction-success" class="transaction-success gp-hidden">
+                <h3 style="color: #2e7d32; margin: 0 0 16px 0;">✅ <span data-i18n="message.success">Payment Successful!</span></h3>
+
+                <div class="transaction-info">
+                    <div class="info-item">
+                        <div class="info-label" data-i18n="message.success.transaction_id">Transaction ID</div>
+                        <div class="info-value" id="txn-id">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label" data-i18n="message.success.amount">Amount</div>
+                        <div class="info-value" id="txn-amount">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label" data-i18n="message.success.card">Card</div>
+                        <div class="info-value" id="txn-card">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Status</div>
+                        <div class="info-value" id="txn-status">Captured</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error Display -->
+            <div id="error-message" class="gp-hidden" style="margin-top: 16px; padding: 16px; background: #ffebee; color: #c62828; border: 1px solid #ef5350; border-radius: 8px;">
+                <!-- Error messages will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="gp-footer">
+        <div class="gp-container">
+            <div class="gp-footer-content">
+                <div class="gp-footer-section">
+                    <p class="gp-footer-copyright">
+                        © 2025 Global Payments. All rights reserved.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay gp-hidden">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/translations.js"></script>
+    <script src="js/currency-formatter.js"></script>
+    <script src="https://js.globalpay.com/4.1.11/globalpayments.js"></script>
+
+    <script>
+        // API base URL
+        const API_BASE = window.location.origin;
+
+        // Global Payments configuration
+        let gpConfig = null;
+        let cardForm = null;
+
+        // Test cards configuration
+        const testCards = {
+            visa: { number: '4263970000005262', cvv: '123', expiry: '12/2025' },
+            mastercard: { number: '5425230000004415', cvv: '123', expiry: '12/2025' },
+            amex: { number: '374101000000608', cvv: '1234', expiry: '12/2025' }
+        };
+
+        // Show/hide loading overlay
+        function showLoading() {
+            document.getElementById('loading-overlay').classList.remove('gp-hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.add('gp-hidden');
+        }
+
+        // Update all UI elements with translations
+        function updateUITranslations() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                const translated = t(key);
+
+                // Update text content for most elements
+                if (el.tagName === 'INPUT' && el.type !== 'hidden') {
+                    if (el.placeholder) {
+                        el.placeholder = t(key + '.placeholder') || translated;
+                    }
+                } else {
+                    el.textContent = translated;
+                }
+            });
+
+            // Update amount label with currency symbol
+            updateAmountLabel(getCurrency());
+
+            // Update page title and lang attribute
+            document.title = t('page.title');
+            document.getElementById('html-root').setAttribute('lang', getLocale());
+        }
+
+        // Handle language change
+        async function handleLanguageChange(locale) {
+            if (!setLocale(locale)) return;
+
+            showLoading();
+            try {
+                // Update session on server
+                await fetch(`${API_BASE}/get-locale.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ locale: locale })
+                });
+
+                updateUITranslations();
+            } catch (error) {
+                console.error('Failed to update locale:', error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Handle currency change
+        async function handleCurrencyChange(currency) {
+            if (!setCurrency(currency)) return;
+
+            showLoading();
+            try {
+                // Update session on server
+                await fetch(`${API_BASE}/get-locale.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ currency: currency })
+                });
+
+                updateAmountLabel(currency);
+
+                // Reinitialize payment form with new currency/country
+                await initializePaymentForm();
+            } catch (error) {
+                console.error('Failed to update currency:', error);
+                displayError(t('error.network'));
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Display error message
+        function displayError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.innerHTML = message;
+            errorDiv.classList.remove('gp-hidden');
+
+            // Hide success if visible
+            document.getElementById('transaction-success').classList.add('gp-hidden');
+        }
+
+        // Display success message
+        function displaySuccess(data) {
+            const successDiv = document.getElementById('transaction-success');
+            const locale = getLocale();
+            const currency = getCurrency();
+
+            document.getElementById('txn-id').textContent = data.transactionId;
+            document.getElementById('txn-amount').textContent = formatCurrency(data.amount, currency, locale);
+            document.getElementById('txn-card').textContent = `${data.paymentMethod.brand} •••• ${data.paymentMethod.last4}`;
+            document.getElementById('txn-status').textContent = data.status;
+
+            successDiv.classList.remove('gp-hidden');
+
+            // Hide error if visible
+            document.getElementById('error-message').classList.add('gp-hidden');
+
+            // Scroll to success message
+            successDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // Initialize Global Payments
+        async function initializePaymentForm() {
+            const form = document.getElementById('payment-form');
+            form.style.opacity = '0.5';
+            form.style.pointerEvents = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE}/config.php`);
+                const config = await response.json();
+
+                if (config.success) {
+                    gpConfig = config.data;
+
+                    // Configure Global Payments
+                    GlobalPayments.configure({
+                        accessToken: gpConfig.accessToken,
+                        env: "sandbox",
+                        fieldValidation: { enabled: true }
+                    });
+
+                    // Destroy existing form if it exists
+                    if (cardForm) {
+                        try {
+                            cardForm.dispose();
+                        } catch (e) {
+                            console.warn('Failed to dispose card form:', e);
+                        }
+                    }
+
+                    // Create the card form
+                    cardForm = GlobalPayments.creditCard.form('#credit-card', {
+                        style: "gp-default"
+                    });
+
+                    cardForm.on('token-success', (resp) => {
+                        document.getElementById('payment-token').value = resp.paymentReference;
+                        submitPayment(resp.details);
+                    });
+
+                    cardForm.on('token-error', (error) => {
+                        console.error('Tokenization error:', error);
+                        displayError(t('error.invalid_card'));
+                        hideLoading();
+                    });
+
+                    cardForm.ready(() => {
+                        form.style.opacity = '1';
+                        form.style.pointerEvents = 'auto';
+                    });
+
+                } else {
+                    throw new Error(config.message || 'Configuration failed');
+                }
+            } catch (error) {
+                console.error('Payment form initialization failed:', error);
+                displayError(t('error.general'));
+                form.style.opacity = '1';
+                form.style.pointerEvents = 'auto';
+            }
+        }
+
+        // Submit payment to backend
+        async function submitPayment(cardDetails) {
+            showLoading();
+
+            const paymentToken = document.getElementById('payment-token').value;
+            const amount = parseInputAmount(document.getElementById('amount').value, getCurrency());
+            const billingZip = document.getElementById('billing_zip').value;
+            const locale = getLocale();
+            const currency = getCurrency();
+
+            try {
+                const response = await fetch(`${API_BASE}/process-payment.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        payment_token: paymentToken,
+                        amount: amount,
+                        currency: currency,
+                        locale: locale,
+                        billing_zip: billingZip,
+                        cardDetails: cardDetails
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    displaySuccess(result.data);
+                } else {
+                    displayError(t('error.payment_failed', { message: result.message }));
+                }
+            } catch (error) {
+                console.error('Payment error:', error);
+                displayError(t('error.network'));
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Form submission handler
+        document.getElementById('payment-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            // Clear previous messages
+            document.getElementById('error-message').classList.add('gp-hidden');
+            document.getElementById('transaction-success').classList.add('gp-hidden');
+
+            // Validate amount
+            const amount = parseFloat(document.getElementById('amount').value);
+            if (!amount || amount <= 0) {
+                displayError(t('error.invalid_amount'));
+                return;
+            }
+
+            showLoading();
+
+            // Trigger tokenization
+            cardForm.submit();
+        });
+
+        // Test card selector
+        document.getElementById('test-card-select').addEventListener('change', (e) => {
+            const selectedCard = e.target.value;
+            if (!selectedCard) return;
+
+            const cardData = testCards[selectedCard];
+            if (cardData && cardForm) {
+                try {
+                    cardForm.frames["card-number"].setValue(cardData.number);
+                    cardForm.frames["card-expiration"].setValue(cardData.expiry.replace('/', ''));
+                    cardForm.frames["card-cvv"].setValue(cardData.cvv);
+                    cardForm.frames["card-holder-name"].setValue('Test User');
+                } catch (error) {
+                    console.warn('Failed to set test card data:', error);
+                }
+            }
+        });
+
+        // Language selector
+        document.getElementById('language-selector').addEventListener('change', (e) => {
+            handleLanguageChange(e.target.value);
+        });
+
+        // Currency selector
+        document.getElementById('currency-selector-dropdown').addEventListener('change', (e) => {
+            handleCurrencyChange(e.target.value);
+        });
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Initialize locale and currency from localStorage/detection
+            initLocale();
+            initCurrency();
+
+            // Set dropdown values
+            document.getElementById('language-selector').value = getLocale();
+            document.getElementById('currency-selector-dropdown').value = getCurrency();
+
+            // Update UI with current locale
+            updateUITranslations();
+
+            // Initialize payment form
+            await initializePaymentForm();
+        });
+    </script>
+</body>
+</html>
