@@ -423,6 +423,10 @@
                         }
                     }
 
+                    // Clear the container div to remove any orphaned elements
+                    const creditCardDiv = document.getElementById('credit-card');
+                    creditCardDiv.innerHTML = '';
+
                     // Create the card form
                     cardForm = GlobalPayments.creditCard.form('#credit-card', {
                         style: "gp-default"
