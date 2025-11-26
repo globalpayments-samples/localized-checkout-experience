@@ -187,6 +187,18 @@
                 </div>
 
                 <!-- Test Card Helper -->
+                <!-- Test Card Data Display -->
+                <div id="test-card-data" class="gp-hidden" style="background: #e8f4fd; color: #0c5460; border: 1px solid #bee5eb; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <strong>📋 Selected Test Card Data:</strong>
+                            <div id="test-card-details" style="font-family: monospace; margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 4px; font-size: 14px;">
+                            </div>
+                        </div>
+                        <button type="button" onclick="hideTestCardData()" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #0c5460; padding: 0; margin-left: 16px;">&times;</button>
+                    </div>
+                </div>
+
                 <div class="gp-form-group" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
                     <label for="test-card-select" class="gp-label" style="margin-bottom: 8px;">
                         🧪 Use Global Payments Test Card:
@@ -196,6 +208,9 @@
                         <option value="visa">Visa Success - 4263970000005262</option>
                         <option value="mastercard">Mastercard Success - 5425230000004415</option>
                         <option value="amex">American Express Success - 374101000000608</option>
+                        <option value="discover">Discover Success - 6011000000000087</option>
+                        <option value="jcb">JCB Success - 3566000000000000</option>
+                        <option value="diners">Diners Club Success - 36256000000725</option>
                     </select>
                     <small style="color: #6c757d; font-size: 12px; margin-top: 4px; display: block;">
                         These are official Global Payments test cards. Select to auto-fill the payment form.
@@ -209,11 +224,6 @@
 
                 <!-- Hidden field to store the token -->
                 <input type="hidden" id="payment-token" name="paymentToken">
-
-                <!-- Submit Button -->
-                <button type="submit" class="gp-button gp-button-primary" id="submit-button">
-                    <span data-i18n="button.process_payment">Process Payment</span>
-                </button>
             </form>
 
             <!-- Transaction Success Display -->
@@ -280,9 +290,12 @@
 
         // Test cards configuration
         const testCards = {
-            visa: { number: '4263970000005262', cvv: '123', expiry: '12/2025' },
-            mastercard: { number: '5425230000004415', cvv: '123', expiry: '12/2025' },
-            amex: { number: '374101000000608', cvv: '1234', expiry: '12/2025' }
+            visa: { number: '4263970000005262', cvv: '123', expiry: '12/2025', cardType: 'Visa', description: 'Visa Success' },
+            mastercard: { number: '5425230000004415', cvv: '123', expiry: '12/2025', cardType: 'Mastercard', description: 'Mastercard Success' },
+            amex: { number: '374101000000608', cvv: '1234', expiry: '12/2025', cardType: 'American Express', description: 'American Express Success' },
+            discover: { number: '6011000000000087', cvv: '123', expiry: '12/2025', cardType: 'Discover', description: 'Discover Success' },
+            jcb: { number: '3566000000000000', cvv: '123', expiry: '12/2025', cardType: 'JCB', description: 'JCB Success' },
+            diners: { number: '36256000000725', cvv: '123', expiry: '12/2025', cardType: 'Diners Club', description: 'Diners Club Success' }
         };
 
         // Show/hide loading overlay
@@ -292,6 +305,46 @@
 
         function hideLoading() {
             document.getElementById('loading-overlay').classList.add('gp-hidden');
+        }
+
+        // Reset form by disposing and reinitializing
+        function resetForm() {
+            try {
+                if (cardForm) {
+                    try {
+                        cardForm.dispose();
+                    } catch (e) {
+                        console.warn('Failed to dispose card form:', e);
+                    }
+                }
+                const creditCardDiv = document.getElementById('credit-card');
+                creditCardDiv.innerHTML = '';
+                document.getElementById('payment-token').value = '';
+                initializePaymentForm();
+            } catch (error) {
+                console.error('Form reset failed:', error);
+            }
+        }
+
+        // Show test card data panel
+        function showTestCardData(cardData) {
+            const panel = document.getElementById('test-card-data');
+            const detailsDiv = document.getElementById('test-card-details');
+            detailsDiv.innerHTML = `
+                <div><strong>Card Type:</strong> ${cardData.cardType}</div>
+                <div><strong>Number:</strong> ${cardData.number}</div>
+                <div><strong>CVV:</strong> ${cardData.cvv}</div>
+                <div><strong>Expiry:</strong> ${cardData.expiry}</div>
+                <div><strong>Cardholder:</strong> Test User</div>
+            `;
+            panel.classList.remove('gp-hidden');
+        }
+
+        // Hide test card data panel
+        function hideTestCardData() {
+            const panel = document.getElementById('test-card-data');
+            panel.classList.add('gp-hidden');
+            window.selectedTestCard = null;
         }
 
         // Update all UI elements with translations
@@ -444,6 +497,19 @@
                     });
 
                     cardForm.ready(() => {
+                        // Auto-fill test card data if available
+                        if (window.selectedTestCard) {
+                            const cardData = window.selectedTestCard;
+                            try {
+                                cardForm.frames["card-number"].setValue(cardData.number);
+                                cardForm.frames["card-expiration"].setValue(cardData.expiry.replace('/', ''));
+                                cardForm.frames["card-cvv"].setValue(cardData.cvv);
+                                cardForm.frames["card-holder-name"].setValue('Test User');
+                                console.log('Test card data auto-filled successfully');
+                            } catch (error) {
+                                console.warn('Failed to auto-fill test card data:', error);
+                            }
+                        }
                         form.style.opacity = '1';
                         form.style.pointerEvents = 'auto';
                     });
@@ -525,16 +591,12 @@
             if (!selectedCard) return;
 
             const cardData = testCards[selectedCard];
-            if (cardData && cardForm) {
-                try {
-                    cardForm.frames["card-number"].setValue(cardData.number);
-                    cardForm.frames["card-expiration"].setValue(cardData.expiry.replace('/', ''));
-                    cardForm.frames["card-cvv"].setValue(cardData.cvv);
-                    cardForm.frames["card-holder-name"].setValue('Test User');
-                } catch (error) {
-                    console.warn('Failed to set test card data:', error);
-                }
+            if (cardData) {
+                window.selectedTestCard = cardData;
+                resetForm();
+                showTestCardData(cardData);
             }
+            e.target.value = '';
         });
 
         // Language selector
