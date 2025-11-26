@@ -1,7 +1,0 @@
-{
-  "name": "Devcontainer",
-  "build": {
-    // Path is relative to the devcontainer.json file.
-    "dockerfile": "Dockerfile"
-  }
-}
