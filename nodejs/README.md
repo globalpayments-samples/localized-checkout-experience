@@ -307,40 +307,31 @@ app.use(session({
 
 ## Token Generation Approach
 
-Node.js implementation uses **manual HTTP token generation** instead of SDK abstraction:
+Node.js implementation uses the **SDK's `generateTransactionKey()` method** for secure token generation:
 
 ```javascript
-// Generate nonce and secret
-const nonce = crypto.randomBytes(16).toString('hex');
-const secret = crypto.createHash('sha512')
-    .update(nonce + process.env.GP_API_APP_KEY)
-    .digest('hex');
+import { GpApiConfig, GpApiService, Channel, Environment } from 'globalpayments-api';
 
-// Manual POST to GP API
-const tokenRequest = {
-    app_id: process.env.GP_API_APP_ID,
-    nonce: nonce,
-    secret: secret,
-    grant_type: 'client_credentials',
-    seconds_to_expire: 600,
-    permissions: ['PMT_POST_Create_Single']
-};
+// Configure GP API for token generation
+const config = new GpApiConfig();
+config.appId = process.env.GP_API_APP_ID || '';
+config.appKey = process.env.GP_API_APP_KEY || '';
+config.environment = Environment.TEST;
+config.channel = Channel.CardNotPresent;
+config.country = 'US';
+config.permissions = ['PMT_POST_Create_Single'];
+config.secondsToExpire = 600;
 
-const response = await fetch('https://apis.sandbox.globalpay.com/ucp/accesstoken', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-        'X-GP-Version': '2021-03-22'
-    },
-    body: JSON.stringify(tokenRequest)
-});
+// Generate access token using SDK
+const accessTokenInfo = await GpApiService.generateTransactionKey(config);
+const accessToken = accessTokenInfo.accessToken;
 ```
 
-**Why Manual Approach?**
-- Direct control over token generation parameters
-- Explicit nonce and secret handling
-- Works across different SDK versions
-- Alternative: PHP SDK has `generateTransactionKey()` method
+**Benefits of SDK Approach:**
+- Consistent behavior with other SDK implementations
+- Proper error handling built into SDK
+- Automatic nonce and secret generation
+- Matches PHP, .NET, and Java implementations
 
 ## Usage Examples
 
