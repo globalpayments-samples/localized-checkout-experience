@@ -13,11 +13,6 @@ using GlobalPayments.Api.Services;
 using GlobalPayments.Services;
 using dotenv.net;
 using System.Text.Json;
-using System.Text.RegularExpressions;
-using System.Security.Cryptography;
-using System.Text;
-using System.Net;
-using System.Net.Http;
 using Environment = GlobalPayments.Api.Entities.Environment;
 
 namespace CardPaymentSample;
@@ -81,35 +76,9 @@ public class Program
         ServicesContainer.ConfigureService(config);
     }
 
-    /// <summary>
-    /// Generates a random nonce for access token request
-    /// </summary>
-    private static string GenerateNonce()
-    {
-        var bytes = new byte[16];
-        using (var rng = RandomNumberGenerator.Create())
-        {
-            rng.GetBytes(bytes);
-        }
-        return BitConverter.ToString(bytes).Replace("-", "").ToLower();
-    }
-
-    /// <summary>
-    /// Creates SHA-512 hash of nonce + appKey
-    /// </summary>
-    private static string HashSecret(string nonce, string appKey)
-    {
-        using (var sha512 = SHA512.Create())
-        {
-            var bytes = Encoding.UTF8.GetBytes(nonce + appKey);
-            var hash = sha512.ComputeHash(bytes);
-            return BitConverter.ToString(hash).Replace("-", "").ToLower();
-        }
-    }
-
     private static void ConfigureEndpoints(WebApplication app)
     {
-        app.MapPost("/config", async (HttpContext context) =>
+        app.MapPost("/config", (HttpContext context) =>
         {
             try
             {
@@ -118,58 +87,43 @@ public class Program
                 var acceptLanguage = context.Request.Headers["Accept-Language"].ToString();
                 var currentLocale = LocaleService.GetCurrentLocale(session, acceptLanguage);
                 var currentCurrency = LocaleService.GetCurrentCurrency(session, acceptLanguage);
+                var countryCode = CurrencyConfig.GetCountryCode(currentCurrency);
 
-                // Generate nonce and secret for manual token request
-                var nonce = GenerateNonce();
-                var secret = HashSecret(nonce, System.Environment.GetEnvironmentVariable("GP_API_APP_KEY") ?? "");
-
-                // Build token request
-                var tokenRequest = new
+                // Configure GP API to generate access token for client-side use
+                // NOTE: Matching PHP configuration exactly (no SecondsToExpire, no AccessTokenInfo)
+                var config = new GpApiConfig
                 {
-                    app_id = System.Environment.GetEnvironmentVariable("GP_API_APP_ID"),
-                    nonce = nonce,
-                    secret = secret,
-                    grant_type = "client_credentials",
-                    seconds_to_expire = 600,
-                    permissions = new[] { "PMT_POST_Create_Single" }
+                    AppId = System.Environment.GetEnvironmentVariable("GP_API_APP_ID"),
+                    AppKey = System.Environment.GetEnvironmentVariable("GP_API_APP_KEY"),
+                    Environment = Environment.TEST,
+                    Channel = Channel.CardNotPresent,
+                    Country = countryCode,
+                    Permissions = new[] { "PMT_POST_Create_Single" }
                 };
 
-                // Determine API endpoint (always sandbox/TEST for now)
-                var apiEndpoint = "https://apis.sandbox.globalpay.com/ucp/accesstoken";
+                // Configure service first (matching PHP behavior - PHP calls ServicesContainer::configureService before generateTransactionKey)
+                ServicesContainer.ConfigureService(config);
 
-                // Make API request with automatic decompression
-                using var handler = new HttpClientHandler
+                // Generate access token using SDK
+                var accessTokenInfo = GpApiService.GenerateTransactionKey(config);
+
+                // Debug logging - compare token with PHP implementation
+                Console.WriteLine($"[DEBUG /config] Country: {countryCode}");
+                Console.WriteLine($"[DEBUG /config] Token type: {accessTokenInfo?.GetType().Name}");
+                Console.WriteLine($"[DEBUG /config] Token length: {accessTokenInfo?.Token?.Length ?? 0}");
+                Console.WriteLine($"[DEBUG /config] Token preview: {(accessTokenInfo?.Token?.Length > 50 ? accessTokenInfo.Token.Substring(0, 50) + "..." : accessTokenInfo?.Token ?? "NULL")}");
+
+                if (string.IsNullOrEmpty(accessTokenInfo?.Token))
                 {
-                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
-                };
-
-                using var httpClient = new HttpClient(handler);
-                httpClient.DefaultRequestHeaders.Add("X-GP-Version", "2021-03-22");
-                httpClient.DefaultRequestHeaders.AcceptEncoding.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue("gzip"));
-                httpClient.DefaultRequestHeaders.AcceptEncoding.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue("deflate"));
-
-                var jsonContent = JsonSerializer.Serialize(tokenRequest);
-                var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-                var response = await httpClient.PostAsync(apiEndpoint, content);
-                var responseBody = await response.Content.ReadAsStringAsync();
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    throw new Exception($"Failed to generate access token: {responseBody}");
+                    throw new Exception("Failed to generate access token");
                 }
-
-                // Parse response
-                var tokenResponse = JsonSerializer.Deserialize<JsonElement>(responseBody);
-                var token = tokenResponse.GetProperty("token").GetString();
-                var expiresIn = tokenResponse.TryGetProperty("seconds_to_expire", out var exp) ? exp.GetInt32() : 600;
 
                 return Results.Ok(new
                 {
                     success = true,
                     data = new
                     {
-                        accessToken = token,
+                        accessToken = accessTokenInfo.Token,
                         locale = currentLocale,
                         currency = currentCurrency,
                         supportedLocales = LocaleService.GetAllLocales(),
@@ -325,6 +279,8 @@ public class Program
                     currElement.GetString() ?? "USD" : "USD";
                 var amount = requestData.TryGetProperty("amount", out var amtElement) ?
                     amtElement.GetDecimal() : 0;
+                var billingZip = requestData.TryGetProperty("billing_zip", out var zipElement) ?
+                    zipElement.GetString() ?? "" : "";
 
                 var currentLocale = LocaleService.GetCurrentLocale(session, acceptLanguage);
 
@@ -333,18 +289,14 @@ public class Program
                 var countryCode = CurrencyConfig.GetCountryCode(validatedCurrency);
 
                 // Reconfigure ServicesContainer with the same country as token generation
+                // Minimal config matching PHP PaymentUtils::configureSdk() - no Permissions or AccessTokenInfo
                 var paymentConfig = new GpApiConfig
                 {
                     AppId = System.Environment.GetEnvironmentVariable("GP_API_APP_ID"),
                     AppKey = System.Environment.GetEnvironmentVariable("GP_API_APP_KEY"),
                     Environment = Environment.TEST,
                     Channel = Channel.CardNotPresent,
-                    Country = countryCode,
-                    Permissions = new[] { "PMT_POST_Create_Single" },
-                    AccessTokenInfo = new AccessTokenInfo
-                    {
-                        TransactionProcessingAccountName = "transaction_processing"
-                    }
+                    Country = countryCode
                 };
 
                 ServicesContainer.ConfigureService(paymentConfig);
@@ -378,8 +330,14 @@ public class Program
                     Token = paymentToken
                 };
 
+                var address = new Address
+                {
+                    PostalCode = billingZip
+                };
+
                 var response = card.Charge(amount)
                     .WithCurrency(validatedCurrency)
+                    .WithAddress(address)
                     .Execute();
 
                 // Simplified validation: check for 00 or SUCCESS response code
