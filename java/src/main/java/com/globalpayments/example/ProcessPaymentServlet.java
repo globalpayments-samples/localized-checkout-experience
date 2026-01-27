@@ -8,6 +8,7 @@ import com.global.api.entities.exceptions.ApiException;
 import com.global.api.entities.exceptions.ConfigurationException;
 import com.global.api.paymentMethods.CreditCardData;
 import com.global.api.serviceConfigs.GpApiConfig;
+import com.global.api.services.GpApiService;
 import com.globalpayments.example.services.CurrencyConfig;
 import com.globalpayments.example.services.LocaleService;
 import com.globalpayments.example.services.TranslationService;
@@ -22,13 +23,7 @@ import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.math.BigDecimal;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.stream.Collectors;
 
@@ -64,33 +59,6 @@ public class ProcessPaymentServlet extends HttpServlet {
     }
 
     /**
-     * Generates a random nonce for access token request
-     */
-    private String generateNonce() {
-        SecureRandom random = new SecureRandom();
-        byte[] bytes = new byte[16];
-        random.nextBytes(bytes);
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) {
-            sb.append(String.format("%02x", b));
-        }
-        return sb.toString();
-    }
-
-    /**
-     * Creates SHA-512 hash of nonce + appKey
-     */
-    private String hashSecret(String nonce, String appKey) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-512");
-        byte[] hash = digest.digest((nonce + appKey).getBytes(StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        for (byte b : hash) {
-            sb.append(String.format("%02x", b));
-        }
-        return sb.toString();
-    }
-
-    /**
      * Handles POST requests to /config endpoint.
      * Generates GP API access token for frontend tokenization using manual HTTP request.
      */
@@ -112,7 +80,7 @@ public class ProcessPaymentServlet extends HttpServlet {
 
     /**
      * Handles /config endpoint
-     * Generates access token with manual HTTP request
+     * Generates access token using SDK
      */
     private void handleGetConfig(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -122,73 +90,30 @@ public class ProcessPaymentServlet extends HttpServlet {
             String acceptLanguage = request.getHeader("Accept-Language");
             String currentLocale = LocaleService.getCurrentLocale(session, acceptLanguage);
             String currentCurrency = LocaleService.getCurrentCurrency(session, acceptLanguage);
+            String countryCode = CurrencyConfig.getCountryCode(currentCurrency);
 
-            // Generate nonce and secret for manual token request
-            String nonce = generateNonce();
-            String secret = hashSecret(nonce, dotenv.get("GP_API_APP_KEY"));
+            // Configure GP API to generate access token for client-side use
+            GpApiConfig config = new GpApiConfig();
+            config.setAppId(dotenv.get("GP_API_APP_ID"));
+            config.setAppKey(dotenv.get("GP_API_APP_KEY"));
+            config.setEnvironment(Environment.TEST);
+            config.setChannel(Channel.CardNotPresent);
+            config.setCountry(countryCode);
+            config.setPermissions(new String[]{"PMT_POST_Create_Single"});
+            config.setSecondsToExpire(600);
 
-            // Build token request JSON
-            JSONObject tokenRequest = new JSONObject();
-            tokenRequest.put("app_id", dotenv.get("GP_API_APP_ID"));
-            tokenRequest.put("nonce", nonce);
-            tokenRequest.put("secret", secret);
-            tokenRequest.put("grant_type", "client_credentials");
-            tokenRequest.put("seconds_to_expire", 600);
-            tokenRequest.put("permissions", new String[]{"PMT_POST_Create_Single"});
+            // Generate access token using SDK
+            var accessTokenInfo = GpApiService.generateTransactionKey(config);
 
-            // Determine API endpoint (always sandbox/TEST for now)
-            String apiEndpoint = "https://apis.sandbox.globalpay.com/ucp/accesstoken";
-
-            // Make API request
-            URL url = new URL(apiEndpoint);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setRequestProperty("X-GP-Version", "2021-03-22");
-            conn.setDoOutput(true);
-
-            // Send request
-            try (OutputStream os = conn.getOutputStream()) {
-                byte[] input = tokenRequest.toString().getBytes(StandardCharsets.UTF_8);
-                os.write(input, 0, input.length);
+            if (accessTokenInfo == null || accessTokenInfo.getAccessToken() == null) {
+                throw new Exception("Failed to generate access token");
             }
-
-            // Read response (handle compressed responses such as gzip/deflate)
-            int responseCode = conn.getResponseCode();
-            java.io.InputStream rawStream = responseCode == 200 ? conn.getInputStream() : conn.getErrorStream();
-            String contentEncoding = conn.getHeaderField("Content-Encoding");
-            java.io.InputStream effectiveStream = rawStream;
-            String responseBody = null;
-            try {
-                if (contentEncoding != null) {
-                    String enc = contentEncoding.toLowerCase();
-                    if (enc.contains("gzip")) {
-                        effectiveStream = new java.util.zip.GZIPInputStream(rawStream);
-                    } else if (enc.contains("deflate")) {
-                        effectiveStream = new java.util.zip.InflaterInputStream(rawStream);
-                    }
-                }
-
-                BufferedReader br = new BufferedReader(new java.io.InputStreamReader(effectiveStream, StandardCharsets.UTF_8));
-                responseBody = br.lines().collect(Collectors.joining());
-                br.close();
-            } finally {
-                try { if (rawStream != null) rawStream.close(); } catch (Exception _e) { /* ignore */ }
-            }
-
-            if (responseCode != 200) {
-                throw new Exception("Failed to generate access token: " + responseBody);
-            }
-
-            // Parse response
-            JSONObject tokenResponse = new JSONObject(responseBody);
-            String token = tokenResponse.getString("token");
 
             JSONObject responseObj = new JSONObject();
             responseObj.put("success", true);
 
             JSONObject dataObj = new JSONObject();
-            dataObj.put("accessToken", token);
+            dataObj.put("accessToken", accessTokenInfo.getAccessToken());
             dataObj.put("locale", currentLocale);
             dataObj.put("currency", currentCurrency);
             dataObj.put("supportedLocales", convertLocalesToJSON(LocaleService.getAllLocales()));
@@ -254,14 +179,14 @@ public class ProcessPaymentServlet extends HttpServlet {
             String validatedCurrency = CurrencyConfig.validateCurrency(currency);
             String countryCode = CurrencyConfig.getCountryCode(validatedCurrency);
 
-            // FIX: Reconfigure SDK per-request with dynamic country based on currency
+            // Reconfigure SDK per-request with dynamic country based on currency
+            // Minimal config matching PHP PaymentUtils::configureSdk() - no Permissions
             GpApiConfig paymentConfig = new GpApiConfig();
             paymentConfig.setAppId(dotenv.get("GP_API_APP_ID"));
             paymentConfig.setAppKey(dotenv.get("GP_API_APP_KEY"));
             paymentConfig.setEnvironment(Environment.TEST);
             paymentConfig.setChannel(Channel.CardNotPresent);
-            paymentConfig.setCountry(countryCode); // Dynamic country
-            paymentConfig.setPermissions(new String[]{"PMT_POST_Create_Single"});
+            paymentConfig.setCountry(countryCode);
 
             ServicesContainer.configureService(paymentConfig);
 

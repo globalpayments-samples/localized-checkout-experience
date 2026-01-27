@@ -9,10 +9,10 @@ import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
 import * as dotenv from 'dotenv';
-import crypto from 'crypto';
 import {
     ServicesContainer,
     GpApiConfig,
+    GpApiService,
     CreditCardData,
     Channel,
     Environment
@@ -26,6 +26,32 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 8000;
 
+/**
+ * Get GP API environment from configuration
+ * Defaults to TEST if not specified or invalid
+ */
+function getGpEnvironment() {
+    const envValue = process.env.GP_API_ENVIRONMENT?.toLowerCase();
+    if (envValue === 'production' || envValue === 'prod') {
+        return Environment.PRODUCTION;
+    }
+    return Environment.TEST;
+}
+
+/**
+ * Get session secret with production validation
+ */
+function getSessionSecret() {
+    if (process.env.SESSION_SECRET) {
+        return process.env.SESSION_SECRET;
+    }
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('SESSION_SECRET environment variable must be set in production');
+    }
+    console.warn('Warning: Using default session secret. Set SESSION_SECRET in production.');
+    return 'dev-only-session-secret-key';
+}
+
 // Middleware
 app.use(cors());
 app.use(express.static('.'));
@@ -34,7 +60,7 @@ app.use(express.json());
 
 // Session middleware for locale/currency persistence
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'gp-api-localization-secret-key',
+    secret: getSessionSecret(),
     resave: false,
     saveUninitialized: true,
     cookie: {
@@ -44,24 +70,7 @@ app.use(session({
 }));
 
 /**
- * Configure GP API SDK
- */
-function configureGpApi() {
-    const config = new GpApiConfig();
-    config.appId = process.env.GP_API_APP_ID || '';
-    config.appKey = process.env.GP_API_APP_KEY || '';
-    config.environment = Environment.TEST;
-    config.channel = Channel.CardNotPresent;
-    config.country = 'US';
-
-    ServicesContainer.configureService(config);
-}
-
-// Initialize SDK
-configureGpApi();
-
-/**
- * POST /config - Generate GP API access token for frontend tokenization using manual HTTP request
+ * POST /config - Generate GP API access token for frontend tokenization using SDK
  */
 app.post('/config', async (req, res) => {
     try {
@@ -70,43 +79,27 @@ app.post('/config', async (req, res) => {
         const currentLocale = LocaleService.getCurrentLocale(req.session, acceptLanguage);
         const currentCurrency = LocaleService.getCurrentCurrency(req.session, acceptLanguage);
 
-        // Generate nonce and secret for manual token request
-        const nonce = crypto.randomBytes(16).toString('hex');
-        const secret = crypto.createHash('sha512')
-            .update(nonce + process.env.GP_API_APP_KEY)
-            .digest('hex');
+        // Configure GP API to generate access token for client-side use
+        const config = new GpApiConfig();
+        config.appId = process.env.GP_API_APP_ID || '';
+        config.appKey = process.env.GP_API_APP_KEY || '';
+        config.environment = getGpEnvironment();
+        config.channel = Channel.CardNotPresent;
+        config.country = 'US';
+        config.permissions = ['PMT_POST_Create_Single'];
+        config.secondsToExpire = 600;
 
-        const tokenRequest = {
-            app_id: process.env.GP_API_APP_ID,
-            nonce: nonce,
-            secret: secret,
-            grant_type: 'client_credentials',
-            seconds_to_expire: 600,
-            permissions: ['PMT_POST_Create_Single']
-        };
+        // Generate access token using SDK
+        const accessTokenInfo = await GpApiService.generateTransactionKey(config);
 
-        // Determine API endpoint (always sandbox/TEST for now)
-        const apiEndpoint = 'https://apis.sandbox.globalpay.com/ucp/accesstoken';
-
-        const response = await fetch(apiEndpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-GP-Version': '2021-03-22'
-            },
-            body: JSON.stringify(tokenRequest)
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || !data.token) {
-            throw new Error(data.error_description || 'Failed to generate access token');
+        if (!accessTokenInfo || !accessTokenInfo.accessToken) {
+            throw new Error('Failed to generate access token');
         }
 
         res.json({
             success: true,
             data: {
-                accessToken: data.token,
+                accessToken: accessTokenInfo.accessToken,
                 locale: currentLocale,
                 currency: currentCurrency,
                 supportedLocales: LocaleService.getAllLocales(),
@@ -174,15 +167,14 @@ app.post('/process-payment', async (req, res) => {
             });
         }
 
-        // FIX: Reconfigure SDK per-request with dynamic country based on currency
-        const countryCode = CurrencyConfig.getCountryCode(chargeCurrency);
+        // Reconfigure SDK per-request - minimal config matching PHP PaymentUtils::configureSdk()
+        // No Permissions set for payment processing (only for token generation in /config)
         const paymentConfig = new GpApiConfig();
         paymentConfig.appId = process.env.GP_API_APP_ID || '';
         paymentConfig.appKey = process.env.GP_API_APP_KEY || '';
-        paymentConfig.environment = Environment.TEST;
+        paymentConfig.environment = getGpEnvironment();
         paymentConfig.channel = Channel.CardNotPresent;
-        paymentConfig.country = countryCode; // Dynamic country
-        paymentConfig.permissions = ['PMT_POST_Create_Single'];
+        paymentConfig.country = 'US';
 
         ServicesContainer.configureService(paymentConfig);
 
@@ -217,9 +209,23 @@ app.post('/process-payment', async (req, res) => {
         }
 
     } catch (error) {
-        const statusCode = error.message?.includes('required') ? 400 : 500;
-        const errorCode = statusCode === 400 ? 'API_ERROR' : 'SERVER_ERROR';
         const currentLocale = LocaleService.getCurrentLocale(req.session, req.headers['accept-language']);
+
+        // Determine appropriate status code and error code based on error type
+        let statusCode = 500;
+        let errorCode = 'SERVER_ERROR';
+
+        const errorMessage = error.message || '';
+        if (errorMessage.includes('declined') || errorMessage.includes('Declined')) {
+            statusCode = 400;
+            errorCode = 'PAYMENT_DECLINED';
+        } else if (errorMessage.includes('Invalid') || errorMessage.includes('Missing')) {
+            statusCode = 400;
+            errorCode = 'VALIDATION_ERROR';
+        } else if (error.name === 'ApiException' || error.name === 'GatewayException') {
+            statusCode = 400;
+            errorCode = 'API_ERROR';
+        }
 
         res.status(statusCode).json({
             success: false,
@@ -299,7 +305,9 @@ app.post('/api/locale', (req, res) => {
 
 // Start server
 app.listen(port, '0.0.0.0', () => {
+    const envName = process.env.GP_API_ENVIRONMENT === 'production' ? 'PRODUCTION' : 'SANDBOX';
     console.log(`Server running at http://localhost:${port}`);
+    console.log(`GP API Environment: ${envName}`);
     console.log('GP API card payment processing with localization ready');
     console.log(`Supported locales: ${LocaleService.getSupportedCodes().join(', ')}`);
     console.log(`Supported currencies: ${CurrencyConfig.getSupportedCodes().join(', ')}`);
