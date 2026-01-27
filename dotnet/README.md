@@ -293,6 +293,36 @@ builder.Services.AddSession(options =>
 - HTTP-only cookies for security
 - Essential cookie (GDPR-compliant)
 
+## Token Generation Approach
+
+.NET implementation uses the **SDK's `GenerateTransactionKey()` method** for secure token generation:
+
+```csharp
+// Configure GP API for token generation
+var config = new GpApiConfig
+{
+    AppId = System.Environment.GetEnvironmentVariable("GP_API_APP_ID"),
+    AppKey = System.Environment.GetEnvironmentVariable("GP_API_APP_KEY"),
+    Environment = GlobalPayments.Api.Entities.Environment.TEST,
+    Channel = Channel.CardNotPresent,
+    Country = countryCode,
+    Permissions = new[] { "PMT_POST_Create_Single" }
+};
+
+// Configure service first
+ServicesContainer.ConfigureService(config);
+
+// Generate access token using SDK
+var accessTokenInfo = GpApiService.GenerateTransactionKey(config);
+var accessToken = accessTokenInfo.Token;
+```
+
+**Benefits of SDK Approach:**
+- Consistent behavior with other SDK implementations
+- Proper error handling built into SDK
+- Automatic nonce and secret generation
+- Matches PHP, Java, and Node.js implementations
+
 ## Usage Examples
 
 ### Example 1: English with USD
