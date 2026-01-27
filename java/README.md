@@ -306,35 +306,29 @@ session.setAttribute("currency", currency);
 
 ## Token Generation Approach
 
-Java implementation uses **manual HTTP token generation** instead of SDK abstraction:
+Java implementation uses the **SDK's `generateTransactionKey()` method** for secure token generation:
 
 ```java
-// Generate nonce and secret
-String nonce = generateNonce(); // 16 random bytes
-String secret = hashSecret(nonce, appKey); // SHA-512 hash
+// Configure GP API for token generation
+GpApiConfig config = new GpApiConfig();
+config.setAppId(dotenv.get("GP_API_APP_ID"));
+config.setAppKey(dotenv.get("GP_API_APP_KEY"));
+config.setEnvironment(Environment.TEST);
+config.setChannel(Channel.CardNotPresent);
+config.setCountry(countryCode);
+config.setPermissions(new String[]{"PMT_POST_Create_Single"});
+config.setSecondsToExpire(600);
 
-// Build token request JSON
-JSONObject tokenRequest = new JSONObject();
-tokenRequest.put("app_id", appId);
-tokenRequest.put("nonce", nonce);
-tokenRequest.put("secret", secret);
-tokenRequest.put("grant_type", "client_credentials");
-tokenRequest.put("seconds_to_expire", 600);
-tokenRequest.put("permissions", new String[]{"PMT_POST_Create_Single"});
-
-// Manual HTTP POST to GP API
-URL url = new URL("https://apis.sandbox.globalpay.com/ucp/accesstoken");
-HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-conn.setRequestMethod("POST");
-conn.setRequestProperty("Content-Type", "application/json");
-conn.setRequestProperty("X-GP-Version", "2021-03-22");
+// Generate access token using SDK
+var accessTokenInfo = GpApiService.generateTransactionKey(config);
+String accessToken = accessTokenInfo.getAccessToken();
 ```
 
-**Why Manual Approach?**
-- Direct control over token generation parameters
-- Explicit nonce and secret handling
-- Consistent with .NET and Node.js implementations
-- Alternative: PHP SDK has `generateTransactionKey()` method
+**Benefits of SDK Approach:**
+- Consistent behavior with other SDK implementations
+- Proper error handling built into SDK
+- Automatic nonce and secret generation
+- Matches PHP, .NET, and Node.js implementations
 
 ## Servlet Configuration
 
