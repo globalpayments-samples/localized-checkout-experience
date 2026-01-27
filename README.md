@@ -30,25 +30,25 @@ All implementations provide identical functionality with platform-specific best 
 ### [.NET Core](./dotnet/)
 **Tech Stack**: ASP.NET Core Minimal API + GP API .NET SDK
 **Session**: ASP.NET Core session middleware with distributed memory cache
-**Token Generation**: Manual HTTP POST with nonce/SHA-512 secret
+**Token Generation**: SDK `GpApiService.GenerateTransactionKey()`
 **Key Features**: Modern minimal API approach, 24-hour session timeout
 
 ### [Node.js](./nodejs/)
 **Tech Stack**: Express.js + GP API Node.js SDK
 **Session**: express-session middleware with memory store
-**Token Generation**: Manual HTTP POST with crypto module
+**Token Generation**: SDK `GpApiService.generateTransactionKey()`
 **Key Features**: ES6 modules, async/await patterns, production Redis example
 
 ### [Java](./java/)
 **Tech Stack**: Jakarta EE Servlets + GP API Java SDK
 **Session**: HttpSession with servlet container
-**Token Generation**: Manual HTTP POST with SecureRandom nonce
+**Token Generation**: SDK `GpApiService.generateTransactionKey()`
 **Key Features**: Annotation-based servlets, Maven Cargo plugin, Tomcat deployment
 
 ### [PHP](./php/)
 **Tech Stack**: Native PHP + GP API PHP SDK
 **Session**: PHP native sessions
-**Token Generation**: SDK abstraction via `generateTransactionKey()`
+**Token Generation**: SDK `GpApiService::generateTransactionKey()`
 **Key Features**: Symfony Translation component, PSR-12 compliant, built-in server routing
 
 ## Quick Start
@@ -264,22 +264,35 @@ Process payment with localized preferences.
 
 ## Implementation Comparison
 
-### Token Generation Approaches
+### Token Generation
 
-**PHP (SDK Method)**:
+All implementations use the SDK's `generateTransactionKey()` method for consistent, secure token generation:
+
+**PHP**:
 ```php
-$sessionToken = GpApiService::generateTransactionKey($config);
-$accessToken = $sessionToken->accessToken;
+$accessTokenInfo = GpApiService::generateTransactionKey($config);
+$accessToken = $accessTokenInfo->accessToken;
 ```
 
-**.NET/Node.js/Java (Manual HTTP)**:
+**.NET**:
 ```csharp
-var nonce = GenerateNonce();
-var secret = HashSecret(nonce, appKey);
-var response = await httpClient.PostAsync(apiEndpoint, tokenRequest);
+var accessTokenInfo = GpApiService.GenerateTransactionKey(config);
+var accessToken = accessTokenInfo.Token;
 ```
 
-Both approaches work correctly - SDK method is cleaner, manual method provides more control.
+**Java**:
+```java
+var accessTokenInfo = GpApiService.generateTransactionKey(config);
+String accessToken = accessTokenInfo.getAccessToken();
+```
+
+**Node.js**:
+```javascript
+const accessTokenInfo = await GpApiService.generateTransactionKey(config);
+const accessToken = accessTokenInfo.accessToken;
+```
+
+This approach provides consistent behavior across all platforms with proper SDK integration.
 
 ### Session Management
 
