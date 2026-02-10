@@ -76,13 +76,17 @@ try {
     // Initialize SDK with dynamic country configuration
     PaymentUtils::configureSdk($countryCode);
 
+    // Get DCC data if provided
+    $dccData = $inputData['dccData'] ?? null;
+
     // Process payment using GP API with dynamic currency and country
     $result = PaymentUtils::processPaymentWithToken(
         $inputData['payment_token'],
         $amount,
         $currentCurrency,
         $inputData,
-        $countryCode
+        $countryCode,
+        $dccData
     );
 
     // Send success response with localized message

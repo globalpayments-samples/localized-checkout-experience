@@ -23,6 +23,7 @@ use GlobalPayments\Api\Entities\Address;
 use GlobalPayments\Api\Entities\Enums\Channel;
 use GlobalPayments\Api\Entities\Enums\Environment;
 use GlobalPayments\Api\Entities\Enums\TransactionStatus;
+use GlobalPayments\Api\Entities\GpApi\AccessTokenInfo;
 use GlobalPayments\Api\PaymentMethods\CreditCardData;
 use GlobalPayments\Api\ServiceConfigs\Gateways\GpApiConfig;
 use GlobalPayments\Api\ServicesContainer;
@@ -44,7 +45,12 @@ class PaymentUtils
         $config->appKey = $_ENV['GP_API_APP_KEY'] ?? '';
         $config->environment = Environment::TEST;
         $config->channel = Channel::CardNotPresent;
-        $config->country = $countryCode ?? 'US';
+        // Use US country for demo credentials - they don't support all regions
+        $config->country = 'US';
+        
+        // Set up access token info for DCC account
+        $config->accessTokenInfo = new AccessTokenInfo();
+        $config->accessTokenInfo->transactionProcessingAccountName = 'dcc';
 
         ServicesContainer::configureService($config);
     }
@@ -70,21 +76,90 @@ class PaymentUtils
      * @param string $currency Currency code (USD, EUR, GBP, etc.)
      * @param array $billingData Billing information including ZIP code
      * @param string|null $countryCode Country code for GP API configuration
+     * @param array|null $dccData DCC rate data if user accepted currency conversion
      * @return array Payment result data
      */
-    public static function processPaymentWithToken(string $token, float $amount, string $currency, array $billingData, ?string $countryCode = null): array
+    public static function processPaymentWithToken(string $token, float $amount, string $currency, array $billingData, ?string $countryCode = null, ?array $dccData = null): array
     {
         try {
+            // Convert amount to minor units (cents) for GP API
+            // GP API expects amounts in the smallest currency unit
+            require_once __DIR__ . '/services/CurrencyConfig.php';
+            $decimals = \Services\CurrencyConfig::getDecimals($currency);
+            $amountMinor = (int) round($amount * pow(10, $decimals));
+            
             $card = new CreditCardData();
             $card->token = $token;
 
             $address = new Address();
             $address->postalCode = self::sanitizePostalCode($billingData['billing_zip'] ?? '');
 
-            $response = $card->charge($amount)
+            // Build charge request with amount in minor units
+            $chargeBuilder = $card->charge($amountMinor)
                 ->withCurrency($currency)
-                ->withAddress($address)
-                ->execute();
+                ->withAddress($address);
+
+            // Add DCC rate data if provided (user accepted DCC)
+            if ($dccData !== null && isset($dccData['dccId'])) {
+                $dccRateData = new \GlobalPayments\Api\Entities\DccRateData();
+                $dccRateData->dccId = $dccData['dccId'];
+                
+                // IMPORTANT: DCC amounts must be in minor units (cents) for the API
+                // Frontend sends amounts in major units (dollars), so convert them back
+                require_once __DIR__ . '/services/CurrencyConfig.php';
+                $cardHolderDecimals = \Services\CurrencyConfig::getDecimals($dccData['cardHolderCurrency'] ?? 'USD');
+                $merchantDecimals = \Services\CurrencyConfig::getDecimals($dccData['merchantCurrency'] ?? 'USD');
+                
+                // Convert from major units to minor units and round to whole numbers
+                $dccRateData->cardHolderAmount = isset($dccData['cardHolderAmount']) 
+                    ? (string) round($dccData['cardHolderAmount'] * pow(10, $cardHolderDecimals))
+                    : null;
+                $dccRateData->cardHolderCurrency = $dccData['cardHolderCurrency'] ?? null;
+                $dccRateData->cardHolderRate = $dccData['exchangeRate'] ?? null;
+                
+                $dccRateData->merchantAmount = isset($dccData['merchantAmount']) 
+                    ? (string) round($dccData['merchantAmount'] * pow(10, $merchantDecimals))
+                    : null;
+                $dccRateData->merchantCurrency = $dccData['merchantCurrency'] ?? null;
+                $dccRateData->marginRatePercentage = $dccData['marginRatePercentage'] ?? null;
+                
+                // Log DCC data for debugging
+                error_log('=== DCC Payment Request ===');
+                error_log('Charge Amount (major units): ' . $amount . ' ' . $currency);
+                error_log('Charge Amount (minor units): ' . $amountMinor . ' ' . $currency);
+                error_log('DCC ID: ' . $dccRateData->dccId);
+                error_log('Merchant Amount (minor units): ' . $dccRateData->merchantAmount . ' ' . $dccRateData->merchantCurrency);
+                error_log('Merchant Amount (major units): ' . $dccData['merchantAmount'] . ' ' . $dccRateData->merchantCurrency);
+                error_log('CardHolder Amount (minor units): ' . $dccRateData->cardHolderAmount . ' ' . $dccRateData->cardHolderCurrency);
+                error_log('CardHolder Amount (major units): ' . $dccData['cardHolderAmount'] . ' ' . $dccRateData->cardHolderCurrency);
+                error_log('Exchange Rate: ' . $dccRateData->cardHolderRate);
+                error_log('Margin Rate: ' . $dccRateData->marginRatePercentage);
+                
+                $chargeBuilder = $chargeBuilder->withDccRateData($dccRateData);
+            }
+
+            error_log('Executing charge request...');
+            $response = $chargeBuilder->execute();
+            
+            // Log the response details
+            error_log('=== Payment Response ===');
+            error_log('Response Code: ' . ($response->responseCode ?? 'NULL'));
+            error_log('Response Message: ' . ($response->responseMessage ?? 'NULL'));
+            error_log('Transaction Status: ' . ($response->transactionStatus ?? 'NULL'));
+            error_log('Transaction ID: ' . ($response->transactionId ?? 'NULL'));
+            
+            // Log DCC data from response
+            if ($response->dccRateData !== null) {
+                error_log('=== Response DCC Data ===');
+                error_log('DCC ID: ' . ($response->dccRateData->dccId ?? 'NULL'));
+                error_log('CardHolder Amount: ' . ($response->dccRateData->cardHolderAmount ?? 'NULL'));
+                error_log('CardHolder Currency: ' . ($response->dccRateData->cardHolderCurrency ?? 'NULL'));
+                error_log('Merchant Amount: ' . ($response->dccRateData->merchantAmount ?? 'NULL'));
+                error_log('Merchant Currency: ' . ($response->dccRateData->merchantCurrency ?? 'NULL'));
+                error_log('Exchange Rate: ' . ($response->dccRateData->cardHolderRate ?? 'NULL'));
+            } else {
+                error_log('No DCC data in response');
+            }
 
             // Validate GP API response
             if ($response->responseCode === 'SUCCESS' &&
@@ -93,7 +168,7 @@ class PaymentUtils
                 // Extract card details from tokenization response
                 $cardDetails = $billingData['cardDetails'] ?? null;
 
-                return [
+                $result = [
                     'transactionId' => $response->transactionId ?? 'txn_' . uniqid(),
                     'amount' => $amount,
                     'currency' => $currency,
@@ -113,6 +188,34 @@ class PaymentUtils
                         'reference_number' => $response->referenceNumber ?? ''
                     ]
                 ];
+
+                // Include DCC information if it was actually used (user chose cardholder currency)
+                // Note: GP API may return dccRateData even when DCC wasn't used, so check if it was requested
+                if ($dccData !== null && $response->dccRateData !== null) {
+                    // Convert DCC amounts from minor units to major units for display
+                    // Use fallback to currency param if response currencies are null
+                    $cardHolderCurrency = $response->dccRateData->cardHolderCurrency ?? $currency;
+                    $merchantCurrency = $response->dccRateData->merchantCurrency ?? $currency;
+                    
+                    $cardHolderDecimals = \Services\CurrencyConfig::getDecimals($cardHolderCurrency);
+                    $merchantDecimals = \Services\CurrencyConfig::getDecimals($merchantCurrency);
+                    
+                    // Calculate merchant amount - use response value if available, otherwise use transaction amount
+                    $merchantAmountValue = $response->dccRateData->merchantAmount !== null 
+                        ? $response->dccRateData->merchantAmount / pow(10, $merchantDecimals)
+                        : $amount;
+                    
+                    $result['dccUsed'] = true;
+                    $result['dccInfo'] = [
+                        'cardHolderAmount' => $response->dccRateData->cardHolderAmount / pow(10, $cardHolderDecimals),
+                        'cardHolderCurrency' => $cardHolderCurrency,
+                        'exchangeRate' => $response->dccRateData->cardHolderRate,
+                        'merchantAmount' => $merchantAmountValue,
+                        'merchantCurrency' => $merchantCurrency
+                    ];
+                }
+
+                return $result;
             } else {
                 throw new \Exception('Payment failed: ' . ($response->responseMessage ?? 'Unknown error'));
             }
@@ -144,6 +247,19 @@ class PaymentUtils
         }
 
         echo json_encode($response);
+        exit();
+    }
+
+    /**
+     * Send JSON response (generic helper)
+     *
+     * @param array $data Response data array
+     * @param int $statusCode HTTP status code
+     */
+    public static function sendJsonResponse(array $data, int $statusCode = 200): void
+    {
+        http_response_code($statusCode);
+        echo json_encode($data);
         exit();
     }
 

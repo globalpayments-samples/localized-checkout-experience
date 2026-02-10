@@ -84,6 +84,8 @@
             font-size: 16px;
             color: #333;
             font-weight: 500;
+            word-break: break-all;
+            overflow-wrap: break-word;
         }
 
         /* Loading state */
@@ -113,9 +115,188 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* DCC Modal */
+        .dcc-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+
+        .dcc-modal-content {
+            background: white;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            padding: 32px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .dcc-modal h3 {
+            margin: 0 0 16px 0;
+            color: #333;
+            font-size: 24px;
+        }
+
+        .dcc-modal p {
+            margin: 0 0 24px 0;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .dcc-option {
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 12px 0;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+        }
+
+        .dcc-option:hover {
+            border-color: #0066cc;
+            box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+        }
+
+        .dcc-option.selected {
+            border-color: #0066cc;
+            background: #e8f4fd;
+        }
+
+        .dcc-option-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .dcc-option-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .dcc-option-amount {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0066cc;
+        }
+
+        .dcc-option-details {
+            font-size: 13px;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .dcc-rate-info {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 12px;
+            margin: 16px 0;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .dcc-button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .dcc-button {
+            flex: 1;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .dcc-button-primary {
+            background: #0066cc;
+            color: white;
+        }
+
+        .dcc-button-primary:hover {
+            background: #0052a3;
+        }
+
+        .dcc-button-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .dcc-button-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #dee2e6;
+        }
+
+        .dcc-button-secondary:hover {
+            background: #e9ecef;
+        }
     </style>
 </head>
 <body>
+    <!-- DCC Selection Modal -->
+    <div id="dcc-modal" class="dcc-modal gp-hidden">
+        <div class="dcc-modal-content">
+            <h3>💱 Choose Your Payment Currency</h3>
+            <p>Your card is eligible for Dynamic Currency Conversion. Select how you would like to be charged:</p>
+
+            <div id="dcc-option-merchant" class="dcc-option">
+                <div class="dcc-option-header">
+                    <div class="dcc-option-title">💳 Merchant Currency</div>
+                    <div class="dcc-option-amount" id="dcc-merchant-amount">-</div>
+                </div>
+                <div class="dcc-option-details" id="dcc-merchant-details">
+                    Pay in the merchant's currency. Your bank will convert this amount.
+                </div>
+            </div>
+
+            <div id="dcc-option-cardholder" class="dcc-option">
+                <div class="dcc-option-header">
+                    <div class="dcc-option-title" id="dcc-cardholder-title">🏠 Your Card Currency</div>
+                    <div class="dcc-option-amount" id="dcc-cardholder-amount">-</div>
+                </div>
+                <div class="dcc-option-details" id="dcc-cardholder-details">
+                    Pay in your card's home currency with a guaranteed exchange rate.
+                </div>
+            </div>
+
+            <div class="dcc-rate-info" id="dcc-rate-info">
+                <!-- Exchange rate details will be inserted here -->
+            </div>
+
+            <div class="dcc-button-group">
+                <button class="dcc-button dcc-button-secondary" onclick="cancelDCC()">Cancel</button>
+                <button class="dcc-button dcc-button-primary" id="dcc-confirm-button" disabled onclick="confirmDCC()">Confirm Payment</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="gp-header">
         <div class="gp-container">
@@ -154,7 +335,7 @@
             </div>
 
             <div class="currency-selector">
-                <label for="currency-selector" data-i18n="form.currency">Currency</label>
+                <label for="currency-selector" data-i18n="form.currency">Merchant Currency</label>
                 <select id="currency-selector-dropdown">
                     <option value="USD">🇺🇸 USD - US Dollar ($)</option>
                     <option value="EUR">🇪🇺 EUR - Euro (€)</option>
@@ -199,6 +380,10 @@
                         <option value="discover">Discover Success - 6011000000000087</option>
                         <option value="jcb">JCB Success - 3566000000000000</option>
                         <option value="diners">Diners Club Success - 36256000000725</option>
+                        <option value="decline-generic">Card Declined - 4000120000000019</option>
+                        <option value="decline-insufficient">Insufficient Funds - 4000160000000004</option>
+                        <option value="decline-lost">Lost Card - 4000190000000001</option>
+                        <option value="decline-stolen">Stolen Card - 4000190000000035</option>
                     </select>
                     <small style="color: #6c757d; font-size: 12px; margin-top: 4px; display: block;">
                         These are official Global Payments test cards. Select to auto-fill the payment form.
@@ -296,7 +481,13 @@
             amex: { number: '374101000000608', cvv: '1234', expiry: '12/2025', cardType: 'American Express', description: 'American Express Success' },
             discover: { number: '6011000000000087', cvv: '123', expiry: '12/2025', cardType: 'Discover', description: 'Discover Success' },
             jcb: { number: '3566000000000000', cvv: '123', expiry: '12/2025', cardType: 'JCB', description: 'JCB Success' },
-            diners: { number: '36256000000725', cvv: '123', expiry: '12/2025', cardType: 'Diners Club', description: 'Diners Club Success' }
+            diners: { number: '36256000000725', cvv: '123', expiry: '12/2025', cardType: 'Diners Club', description: 'Diners Club Success' },
+            
+            // Decline/Error test cards
+            'decline-generic': { number: '4000120000000019', cvv: '123', expiry: '12/2026', cardType: 'Visa', description: 'Card Declined' },
+            'decline-insufficient': { number: '4000160000000004', cvv: '123', expiry: '12/2026', cardType: 'Visa', description: 'Insufficient Funds' },
+            'decline-lost': { number: '4000190000000001', cvv: '123', expiry: '12/2026', cardType: 'Visa', description: 'Lost Card' },
+            'decline-stolen': { number: '4000190000000035', cvv: '123', expiry: '12/2026', cardType: 'Visa', description: 'Stolen Card' }
         };
 
         // Show/hide loading overlay
@@ -306,46 +497,6 @@
 
         function hideLoading() {
             document.getElementById('loading-overlay').classList.add('gp-hidden');
-        }
-
-        // Reset form by disposing and reinitializing
-        function resetForm() {
-            try {
-                if (cardForm) {
-                    try {
-                        cardForm.dispose();
-                    } catch (e) {
-                        console.warn('Failed to dispose card form:', e);
-                    }
-                }
-                const creditCardDiv = document.getElementById('credit-card');
-                creditCardDiv.innerHTML = '';
-                document.getElementById('payment-token').value = '';
-                initializePaymentForm();
-            } catch (error) {
-                console.error('Form reset failed:', error);
-            }
-        }
-
-        // Show test card data panel
-        function showTestCardData(cardData) {
-            const panel = document.getElementById('test-card-data');
-            const detailsDiv = document.getElementById('test-card-details');
-            detailsDiv.innerHTML = `
-                <div><strong>Card Type:</strong> ${cardData.cardType}</div>
-                <div><strong>Number:</strong> ${cardData.number}</div>
-                <div><strong>CVV:</strong> ${cardData.cvv}</div>
-                <div><strong>Expiry:</strong> ${cardData.expiry}</div>
-                <div><strong>Cardholder:</strong> Test User</div>
-            `;
-            panel.classList.remove('gp-hidden');
-        }
-
-        // Hide test card data panel
-        function hideTestCardData() {
-            const panel = document.getElementById('test-card-data');
-            panel.classList.add('gp-hidden');
-            window.selectedTestCard = null;
         }
 
         // Update all UI elements with translations
@@ -435,7 +586,35 @@
             const currency = getCurrency();
 
             document.getElementById('txn-id').textContent = data.transactionId;
-            document.getElementById('txn-amount').textContent = formatCurrency(data.amount, currency, locale);
+            
+            // Show appropriate amount based on DCC usage
+            if (data.dccUsed && data.dccInfo) {
+                document.getElementById('txn-amount').textContent = 
+                    `${formatCurrency(data.dccInfo.cardHolderAmount, data.dccInfo.cardHolderCurrency, locale)} (${data.dccInfo.cardHolderCurrency})`;
+                
+                // Add DCC info note
+                const dccNote = document.createElement('div');
+                dccNote.className = 'info-item';
+                dccNote.style.gridColumn = '1 / -1';
+                dccNote.innerHTML = `
+                    <div class="info-label">💱 Dynamic Currency Conversion</div>
+                    <div class="info-value" style="font-size: 14px;">
+                        Charged in your card currency (${data.dccInfo.cardHolderCurrency}). 
+                        Equivalent to ${formatCurrency(data.dccInfo.merchantAmount, data.dccInfo.merchantCurrency, locale)} ${data.dccInfo.merchantCurrency}
+                    </div>
+                `;
+                
+                // Add DCC info to transaction info if not already present
+                const transactionInfo = document.querySelector('.transaction-info');
+                const existingDccNote = transactionInfo.querySelector('.info-item:last-child');
+                if (existingDccNote && existingDccNote.textContent.includes('Dynamic Currency')) {
+                    existingDccNote.remove();
+                }
+                transactionInfo.appendChild(dccNote);
+            } else {
+                document.getElementById('txn-amount').textContent = formatCurrency(data.amount, currency, locale);
+            }
+            
             document.getElementById('txn-status').textContent = data.status;
 
             // Display reference if available
@@ -495,7 +674,8 @@
 
                     cardForm.on('token-success', (resp) => {
                         document.getElementById('payment-token').value = resp.paymentReference;
-                        submitPayment(resp.details);
+                        // Check for DCC availability before proceeding
+                        checkDCCAvailability(resp.paymentReference, resp.details);
                     });
 
                     cardForm.on('token-error', (error) => {
@@ -505,7 +685,7 @@
                     });
 
                     cardForm.ready(() => {
-                        // Auto-fill test card data if available
+                        // Auto-apply stored test card data if available
                         if (window.selectedTestCard) {
                             const cardData = window.selectedTestCard;
                             try {
@@ -518,6 +698,7 @@
                                 console.warn('Failed to auto-fill test card data:', error);
                             }
                         }
+
                         form.style.opacity = '1';
                         form.style.pointerEvents = 'auto';
                     });
@@ -533,8 +714,177 @@
             }
         }
 
+        // DCC Flow Variables
+        let dccData = null;
+        let cardDetails = null;
+        let selectedDCCOption = null;
+
+        // Check DCC availability for the tokenized card
+        async function checkDCCAvailability(paymentToken, details) {
+            const amount = parseInputAmount(document.getElementById('amount').value, getCurrency());
+            const currency = getCurrency();
+            const locale = getLocale();
+
+            try {
+                const response = await fetch(`${API_BASE}/get-dcc-rate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        payment_token: paymentToken,
+                        amount: amount,
+                        currency: currency,
+                        locale: locale
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.dccAvailable) {
+                    // DCC is available - show modal
+                    dccData = result.data;
+                    cardDetails = details;
+                    showDCCModal(result.data);
+                } else {
+                    // DCC not available - proceed with normal payment
+                    dccData = null;
+                    submitPayment(details, null);
+                }
+            } catch (error) {
+                console.error('DCC check error:', error);
+                // On error, proceed without DCC
+                dccData = null;
+                submitPayment(details, null);
+            }
+        }
+
+        // Show DCC selection modal
+        function showDCCModal(data) {
+            const modal = document.getElementById('dcc-modal');
+            const locale = getLocale();
+            const currency = getCurrency();
+
+            // Use the selected currency as the cardholder currency for display consistency
+            const cardholderCurrency = currency;
+            const merchantCurrency = data.merchantCurrency;
+            
+            // Calculate cardholder amount based on selected currency
+            // If data.cardHolderCurrency matches our selected currency, use that amount
+            // Otherwise, we'll use the merchant amount since we're paying in the selected currency
+            const useSelectedCurrency = (data.cardHolderCurrency === currency);
+            const cardholderAmount = useSelectedCurrency 
+                ? formatCurrency(parseFloat(data.cardHolderAmount), currency, locale)
+                : formatCurrency(parseFloat(data.merchantAmount), currency, locale);
+            const merchantAmount = formatCurrency(parseFloat(data.merchantAmount), merchantCurrency, locale);
+
+            // Set merchant option
+            document.getElementById('dcc-merchant-amount').textContent = merchantAmount;
+            document.getElementById('dcc-merchant-details').textContent = 
+                `Pay in ${merchantCurrency}. Your bank will apply their exchange rate.`;
+
+            // Set cardholder option - use selected currency
+            document.getElementById('dcc-cardholder-title').textContent = `🏠 Your Card Currency (${cardholderCurrency})`;
+            document.getElementById('dcc-cardholder-amount').textContent = cardholderAmount;
+            
+            // Update details based on whether selected currency matches merchant currency
+            if (cardholderCurrency === merchantCurrency) {
+                document.getElementById('dcc-cardholder-details').textContent = 
+                    `Pay in ${cardholderCurrency}. Same as merchant currency - no conversion needed.`;
+            } else {
+                document.getElementById('dcc-cardholder-details').textContent = 
+                    `Pay in ${cardholderCurrency} with guaranteed exchange rate.`;
+            }
+
+            // Set rate info - only show if currencies are different
+            let rateInfo = '';
+            if (cardholderCurrency === merchantCurrency) {
+                rateInfo = `<strong>Note:</strong> Your selected currency matches the merchant currency. No currency conversion is applied.`;
+            } else if (useSelectedCurrency && data.cardHolderCurrency === currency) {
+                // Show the actual DCC rate info
+                rateInfo = `
+                    <strong>Exchange Rate:</strong> 1 ${data.merchantCurrency} = ${data.exchangeRate} ${data.cardHolderCurrency}<br>
+                    <strong>Margin:</strong> ${data.marginRatePercentage}%<br>
+                    <strong>Source:</strong> ${data.exchangeRateSource || 'Not specified'}
+                `;
+            } else {
+                // Selected currency doesn't match detected card currency
+                rateInfo = `<strong>Note:</strong> Paying in ${cardholderCurrency}. Your bank will handle the currency conversion.`;
+            }
+            document.getElementById('dcc-rate-info').innerHTML = rateInfo;
+
+            // Reset selection
+            selectedDCCOption = null;
+            document.getElementById('dcc-confirm-button').disabled = true;
+            document.getElementById('dcc-option-merchant').classList.remove('selected');
+            document.getElementById('dcc-option-cardholder').classList.remove('selected');
+
+            // Add click handlers
+            const merchantOption = document.getElementById('dcc-option-merchant');
+            const cardholderOption = document.getElementById('dcc-option-cardholder');
+
+            merchantOption.onclick = () => selectDCCOption('merchant');
+            cardholderOption.onclick = () => selectDCCOption('cardholder');
+
+            // Show modal
+            modal.classList.remove('gp-hidden');
+        }
+
+        // Select DCC option
+        function selectDCCOption(option) {
+            selectedDCCOption = option;
+            
+            const merchantOption = document.getElementById('dcc-option-merchant');
+            const cardholderOption = document.getElementById('dcc-option-cardholder');
+            const confirmButton = document.getElementById('dcc-confirm-button');
+
+            merchantOption.classList.remove('selected');
+            cardholderOption.classList.remove('selected');
+
+            if (option === 'merchant') {
+                merchantOption.classList.add('selected');
+            } else {
+                cardholderOption.classList.add('selected');
+            }
+
+            confirmButton.disabled = false;
+        }
+
+        // Confirm DCC choice and proceed with payment
+        function confirmDCC() {
+            const modal = document.getElementById('dcc-modal');
+            modal.classList.add('gp-hidden');
+
+            // Prepare DCC data to send with payment
+            let dccPaymentData = null;
+            
+            if (selectedDCCOption === 'cardholder' && dccData) {
+                // User chose DCC - send the DCC data
+                dccPaymentData = {
+                    dccId: dccData.dccId,
+                    cardHolderAmount: dccData.cardHolderAmount,
+                    cardHolderCurrency: dccData.cardHolderCurrency,
+                    exchangeRate: dccData.exchangeRate,
+                    merchantAmount: dccData.merchantAmount,
+                    merchantCurrency: dccData.merchantCurrency,
+                    marginRatePercentage: dccData.marginRatePercentage
+                };
+            }
+            // If merchant option selected, dccPaymentData stays null (no DCC used)
+
+            submitPayment(cardDetails, dccPaymentData);
+        }
+
+        // Cancel DCC and return to form
+        function cancelDCC() {
+            const modal = document.getElementById('dcc-modal');
+            modal.classList.add('gp-hidden');
+            hideLoading();
+            
+            // Reset token and allow form resubmission
+            document.getElementById('payment-token').value = '';
+        }
+
         // Submit payment to backend
-        async function submitPayment(cardDetails) {
+        async function submitPayment(cardDetails, dccPaymentData = null) {
             showLoading();
 
             const paymentToken = document.getElementById('payment-token').value;
@@ -550,7 +900,8 @@
                         payment_token: paymentToken,
                         amount: amount,
                         currency: currency,
-                        locale: locale
+                        locale: locale,
+                        dccData: dccPaymentData
                     })
                 });
 
@@ -590,6 +941,53 @@
             cardForm.submit();
         });
 
+        // Show test card data panel
+        function showTestCardData(cardData) {
+            const testCardElement = document.getElementById('test-card-data');
+            const detailsElement = document.getElementById('test-card-details');
+
+            detailsElement.innerHTML = `
+                <strong>Card Number:</strong> ${cardData.number}<br>
+                <strong>Expiration:</strong> ${cardData.expiry}<br>
+                <strong>CVV:</strong> ${cardData.cvv}<br>
+                <strong>Brand:</strong> ${cardData.cardType}
+            `;
+
+            testCardElement.classList.remove('gp-hidden');
+        }
+
+        // Hide test card data panel
+        function hideTestCardData() {
+            document.getElementById('test-card-data').classList.add('gp-hidden');
+            window.selectedTestCard = null; // Clear stored data
+        }
+
+        // Reset form and reinitialize
+        function resetForm() {
+            try {
+                // Destroy existing form if it exists
+                if (cardForm) {
+                    try {
+                        cardForm.dispose();
+                    } catch (e) {
+                        console.warn('Failed to dispose card form:', e);
+                    }
+                }
+
+                // Clear the container div to remove any orphaned elements
+                const creditCardDiv = document.getElementById('credit-card');
+                creditCardDiv.innerHTML = '';
+
+                // Clear hidden token field
+                document.getElementById('payment-token').value = '';
+
+                // Reinitialize the payment form (preserves window.selectedTestCard)
+                initializePaymentForm();
+            } catch (error) {
+                console.error('Form reset failed:', error);
+            }
+        }
+
         // Test card selector
         document.getElementById('test-card-select').addEventListener('change', (e) => {
             const selectedCard = e.target.value;
@@ -597,10 +995,17 @@
 
             const cardData = testCards[selectedCard];
             if (cardData) {
+                // Store card data globally before reset
                 window.selectedTestCard = cardData;
+
+                // Reset form (will auto-fill with stored data)
                 resetForm();
+
+                // Show test card data panel
                 showTestCardData(cardData);
             }
+
+            // Reset selector
             e.target.value = '';
         });
 

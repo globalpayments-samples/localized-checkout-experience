@@ -27,6 +27,7 @@ use GlobalPayments\Api\ServicesContainer;
 use GlobalPayments\Api\Entities\Enums\Environment;
 use GlobalPayments\Api\Entities\Enums\Channel;
 use GlobalPayments\Api\Services\GpApiService;
+use GlobalPayments\Api\Entities\GpApi\AccessTokenInfo;
 use Services\LocaleService;
 use Services\CurrencyConfig;
 
@@ -46,8 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// Only allow GET method
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+// Allow GET and POST methods
+if ($_SERVER['REQUEST_METHOD'] !== 'GET' && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode([
         'success' => false,
@@ -60,7 +61,6 @@ try {
     // Get current locale and currency (with detection and fallbacks)
     $currentLocale = LocaleService::getCurrentLocale();
     $currentCurrency = LocaleService::getCurrentCurrency();
-    $countryCode = CurrencyConfig::getCountryCode($currentCurrency);
 
     // Configure GP API to generate access token for client-side use
     $config = new GpApiConfig();
@@ -68,10 +68,18 @@ try {
     $config->appKey = $_ENV['GP_API_APP_KEY'] ?? '';
     $config->environment = Environment::TEST;
     $config->channel = Channel::CardNotPresent;
-    $config->country = $countryCode; // Dynamic country based on currency
-
-    // Set permissions specifically for client-side single-use tokenization
+    // Use US country for demo credentials - they don't support all regions
+    $config->country = 'US';
+    
+    // Set up access token info for DCC account
+    $config->accessTokenInfo = new AccessTokenInfo();
+    $config->accessTokenInfo->transactionProcessingAccountName = 'dcc';
+    
+    // Set permissions for client-side tokenization
     $config->permissions = ['PMT_POST_Create_Single'];
+    
+    // Set token expiration (10 minutes)
+    $config->secondsToExpire = 600;
 
     // Configure service to establish connection
     ServicesContainer::configureService($config);

@@ -119,6 +119,18 @@ class CurrencyConfig
     }
 
     /**
+     * Get number of decimal places for currency
+     *
+     * @param string $currencyCode Currency code
+     * @return int Number of decimals
+     */
+    public static function getDecimals(string $currencyCode): int
+    {
+        $currency = self::getCurrency($currencyCode);
+        return $currency ? $currency['decimals'] : 2;
+    }
+
+    /**
      * Format amount according to currency rules
      *
      * @param float $amount Amount to format

@@ -6,6 +6,7 @@ Multi-language, multi-currency card payment processing using Global Payments GP 
 
 - **Multi-Language Support**: 5 languages (English, Spanish, French, German, Portuguese)
 - **Multi-Currency Support**: 6 currencies (USD, EUR, GBP, CAD, AUD, JPY)
+- **Dynamic Currency Conversion (DCC)**: Allows international cardholders to pay in their home currency with transparent exchange rates
 - **Independent Selection**: Language and currency can be chosen independently
 - **Automatic Locale Detection**: Detects browser language preferences via Accept-Language header
 - **Session Persistence**: User preferences saved across page reloads
@@ -133,6 +134,42 @@ Backend: Return localized success/error message
 Frontend: Display message in user's language
 ```
 
+### 4. Dynamic Currency Conversion (DCC) Flow
+```
+User enters card details
+   ↓
+GP API JavaScript SDK: Tokenize card (client-side)
+   ↓
+Frontend: POST /get-dcc-rate with token + amount + currency
+   ↓
+Backend: Query GP API for DCC availability and rates
+   ↓
+Backend: Return DCC rates if available
+   ↓
+Frontend: Display currency choice modal to user
+   ├─ Option 1: Merchant Currency (original)
+   └─ Option 2: Cardholder Currency (with exchange rate)
+   ↓
+User selects preferred currency
+   ↓
+Frontend: POST /process-payment with selected DCC data
+   ↓
+Backend: Process payment with DCC if selected
+   ↓
+Backend: Return success with DCC information
+   ↓
+Frontend: Display payment confirmation
+```
+
+**DCC Benefits**:
+- International cardholders see the exact amount in their home currency
+- Transparent exchange rates provided before payment
+- No surprises from bank conversion fees
+- Compliance with EEA currency conversion regulations
+- Improved customer trust and conversion rates
+
+**Note**: DCC is automatically checked for all cards. If the card is eligible, users will be presented with the choice. If not available, the payment proceeds normally in the merchant currency.
+
 ## Supported Languages
 
 | Code | Language | Native Name | Default Currency | Flag |
@@ -192,10 +229,52 @@ Update user's locale and currency preferences.
 }
 ```
 
-### POST /process-payment
-Process payment with localized preferences.
+### POST /get-dcc-rate
+Check Dynamic Currency Conversion availability and get exchange rates.
 
 **Request**:
+```json
+{
+  "payment_token": "PMT_xxx",
+  "amount": 25.00,
+  "currency": "EUR",
+  "locale": "en"
+}
+```
+
+**Response (DCC Available)**:
+```json
+{
+  "success": true,
+  "dccAvailable": true,
+  "data": {
+    "merchantAmount": "25.00",
+    "merchantCurrency": "EUR",
+    "cardHolderAmount": "27.50",
+    "cardHolderCurrency": "USD",
+    "exchangeRate": "1.10",
+    "marginRatePercentage": "3.0",
+    "exchangeRateSource": "Reuters Wholesale Interbank",
+    "commissionPercentage": "0",
+    "dccId": "dcc_xxx"
+  },
+  "message": "DCC rate retrieved successfully"
+}
+```
+
+**Response (DCC Not Available)**:
+```json
+{
+  "success": true,
+  "dccAvailable": false,
+  "message": "DCC not available for this card"
+}
+```
+
+### POST /process-payment
+Process payment with localized preferences and optional DCC.
+
+**Request (Standard Payment)**:
 ```json
 {
   "payment_token": "PMT_xxx",
@@ -205,7 +284,26 @@ Process payment with localized preferences.
 }
 ```
 
-**Response**:
+**Request (With DCC)**:
+```json
+{
+  "payment_token": "PMT_xxx",
+  "amount": 25.00,
+  "currency": "EUR",
+  "locale": "es",
+  "dccData": {
+    "dccId": "dcc_xxx",
+    "cardHolderAmount": "27.50",
+    "cardHolderCurrency": "USD",
+    "exchangeRate": "1.10",
+    "merchantAmount": "25.00",
+    "merchantCurrency": "EUR",
+    "marginRatePercentage": "3.0"
+  }
+}
+```
+
+**Response (Standard)**:
 ```json
 {
   "success": true,
@@ -216,6 +314,28 @@ Process payment with localized preferences.
     "status": "CAPTURED"
   },
   "message": "¡Pago Exitoso!"
+}
+```
+
+**Response (With DCC)**:
+```json
+{
+  "success": true,
+  "data": {
+    "transactionId": "txn_xxx",
+    "amount": 25.00,
+    "currency": "EUR",
+    "status": "CAPTURED",
+    "dccUsed": true,
+    "dccInfo": {
+      "cardHolderAmount": "27.50",
+      "cardHolderCurrency": "USD",
+      "exchangeRate": "1.10",
+      "merchantAmount": "25.00",
+      "merchantCurrency": "EUR"
+    }
+  },
+  "message": "Payment Successful!"
 }
 ```
 

@@ -119,11 +119,150 @@ app.post('/config', async (req, res) => {
 });
 
 /**
+ * POST /get-dcc-rate - Get Dynamic Currency Conversion rate for international cardholders
+ */
+app.post('/get-dcc-rate', async (req, res) => {
+    try {
+        const { payment_token, amount, currency, locale } = req.body;
+
+        // Update session with user preferences
+        if (locale) {
+            LocaleService.setSessionLocale(req.session, locale);
+        }
+        if (currency) {
+            LocaleService.setSessionCurrency(req.session, currency);
+        }
+
+        // Validate required fields
+        if (!payment_token || !amount || !currency) {
+            const currentLocale = LocaleService.getCurrentLocale(req.session, req.headers['accept-language']);
+            return res.status(400).json({
+                success: false,
+                message: TranslationService.t('validation.required', currentLocale),
+                error_code: 'VALIDATION_ERROR',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        const chargeAmount = parseFloat(amount);
+        if (chargeAmount <= 0) {
+            const currentLocale = LocaleService.getCurrentLocale(req.session, req.headers['accept-language']);
+            return res.status(400).json({
+                success: false,
+                message: TranslationService.t('error.invalid_amount', currentLocale),
+                error_code: 'VALIDATION_ERROR',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Validate currency
+        const chargeCurrency = CurrencyConfig.validateCurrency(currency);
+        if (!CurrencyConfig.isSupported(chargeCurrency)) {
+            const currentLocale = LocaleService.getCurrentLocale(req.session, req.headers['accept-language']);
+            return res.status(400).json({
+                success: false,
+                message: TranslationService.t('error.currency_not_supported', currentLocale, { currency: chargeCurrency }),
+                error_code: 'VALIDATION_ERROR',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Get country code based on currency for proper routing
+        const countryCode = CurrencyConfig.getCountryCode(chargeCurrency);
+
+        // Configure SDK for DCC rate lookup
+        const dccConfig = new GpApiConfig();
+        dccConfig.appId = process.env.GP_API_APP_ID || '';
+        dccConfig.appKey = process.env.GP_API_APP_KEY || '';
+        dccConfig.environment = getGpEnvironment();
+        dccConfig.channel = Channel.CardNotPresent;
+        dccConfig.country = countryCode;
+
+        ServicesContainer.configureService(dccConfig);
+
+        const card = new CreditCardData();
+        card.token = payment_token;
+
+        // Get DCC rate information
+        const dccDetails = await card.getDccRate()
+            .withAmount(chargeAmount)
+            .withCurrency(chargeCurrency)
+            .execute();
+
+        // Check if DCC is available for this card
+        if (dccDetails.responseMessage === 'AVAILABLE' && dccDetails.dccRateData) {
+            const dccData = dccDetails.dccRateData;
+            
+            // Log DCC rate response for debugging
+            console.log('=== DCC Rate Lookup Response ===');
+            console.log(`Amount requested: ${chargeAmount} ${chargeCurrency}`);
+            console.log(`Merchant Amount: ${dccData.merchantAmount} ${dccData.merchantCurrency}`);
+            console.log(`CardHolder Amount: ${dccData.cardHolderAmount} ${dccData.cardHolderCurrency}`);
+            console.log(`Exchange Rate: ${dccData.cardHolderRate}`);
+            console.log(`Margin Rate: ${dccData.marginRatePercentage}`);
+            console.log(`DCC ID: ${dccData.dccId}`);
+            
+            res.json({
+                success: true,
+                dccAvailable: true,
+                data: {
+                    merchantAmount: dccData.merchantAmount,
+                    merchantCurrency: dccData.merchantCurrency,
+                    cardHolderAmount: dccData.cardHolderAmount,
+                    cardHolderCurrency: dccData.cardHolderCurrency,
+                    exchangeRate: dccData.cardHolderRate,
+                    marginRatePercentage: dccData.marginRatePercentage,
+                    exchangeRateSource: dccData.exchangeRateSourceName,
+                    commissionPercentage: dccData.commissionPercentage,
+                    dccId: dccData.dccId
+                },
+                message: 'DCC rate retrieved successfully',
+                timestamp: new Date().toISOString()
+            });
+        } else {
+            // DCC not available for this card
+            res.json({
+                success: true,
+                dccAvailable: false,
+                message: 'DCC not available for this card',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+    } catch (error) {
+        const currentLocale = LocaleService.getCurrentLocale(req.session, req.headers['accept-language']);
+        
+        // Check if this is a "not allowed" error (common for cards that don't support DCC)
+        const errorMessage = error.message || '';
+        if (errorMessage.toLowerCase().includes('not allowed') ||
+            errorMessage.toLowerCase().includes('not available') ||
+            errorMessage.includes('502')) {
+            
+            // DCC not available - return success with dccAvailable: false
+            return res.json({
+                success: true,
+                dccAvailable: false,
+                message: 'DCC not available for this card/currency combination',
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        res.status(500).json({
+            success: false,
+            dccAvailable: false,
+            message: TranslationService.t('error.payment_failed', currentLocale, { message: errorMessage }),
+            error_code: 'DCC_ERROR',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+/**
  * POST /process-payment - Process payment using GP API token with per-request SDK reconfiguration
  */
 app.post('/process-payment', async (req, res) => {
     try {
-        const { payment_token, amount, currency, locale } = req.body;
+        const { payment_token, amount, currency, locale, dccData } = req.body;
 
         // Update session with user preferences
         if (locale) {
@@ -167,6 +306,9 @@ app.post('/process-payment', async (req, res) => {
             });
         }
 
+        // Get country code based on currency for proper routing
+        const countryCode = CurrencyConfig.getCountryCode(chargeCurrency);
+
         // Reconfigure SDK per-request - minimal config matching PHP PaymentUtils::configureSdk()
         // No Permissions set for payment processing (only for token generation in /config)
         const paymentConfig = new GpApiConfig();
@@ -174,16 +316,43 @@ app.post('/process-payment', async (req, res) => {
         paymentConfig.appKey = process.env.GP_API_APP_KEY || '';
         paymentConfig.environment = getGpEnvironment();
         paymentConfig.channel = Channel.CardNotPresent;
-        paymentConfig.country = 'US';
+        paymentConfig.country = countryCode;
 
         ServicesContainer.configureService(paymentConfig);
 
         const card = new CreditCardData();
         card.token = payment_token;
 
-        const response = await card.charge(chargeAmount)
-            .withCurrency(chargeCurrency)
-            .execute();
+        // Build charge request
+        let chargeBuilder = card.charge(chargeAmount).withCurrency(chargeCurrency);
+        
+        // Add DCC rate data if provided (user accepted DCC)
+        if (dccData && dccData.dccId) {
+            const { DccRateData } = await import('globalpayments-api');
+            const dccRateData = new DccRateData();
+            dccRateData.dccId = dccData.dccId;
+            
+            // Round amounts to whole numbers (minor units must be integers)
+            dccRateData.cardHolderAmount = Math.round(dccData.cardHolderAmount);
+            dccRateData.cardHolderCurrency = dccData.cardHolderCurrency;
+            dccRateData.cardHolderRate = dccData.exchangeRate;
+            dccRateData.merchantAmount = Math.round(dccData.merchantAmount);
+            dccRateData.merchantCurrency = dccData.merchantCurrency;
+            dccRateData.marginRatePercentage = dccData.marginRatePercentage;
+            
+            // Log DCC data for debugging
+            console.log('=== DCC Payment Request ===');
+            console.log(`Charge Amount: ${chargeAmount} ${chargeCurrency}`);
+            console.log(`DCC ID: ${dccRateData.dccId}`);
+            console.log(`Merchant Amount: ${dccRateData.merchantAmount} ${dccRateData.merchantCurrency}`);
+            console.log(`CardHolder Amount: ${dccRateData.cardHolderAmount} ${dccRateData.cardHolderCurrency}`);
+            console.log(`Exchange Rate: ${dccRateData.cardHolderRate}`);
+            console.log(`Margin Rate: ${dccRateData.marginRatePercentage}`);
+            
+            chargeBuilder = chargeBuilder.withDccRateData(dccRateData);
+        }
+
+        const response = await chargeBuilder.execute();
 
         // Simplified validation: check for 00 or SUCCESS response code
         if (response.responseCode === '00' || response.responseCode === 'SUCCESS') {
@@ -191,16 +360,30 @@ app.post('/process-payment', async (req, res) => {
             const successMessage = TranslationService.t('message.success', currentLocale);
 
             // Simplified response structure
+            const responseData = {
+                transactionId: response.transactionId || 'txn_' + Date.now(),
+                amount: chargeAmount,
+                currency: chargeCurrency,
+                status: response.responseMessage,
+                reference: response.referenceNumber || '',
+                timestamp: new Date().toISOString()
+            };
+
+            // Include DCC information if it was used
+            if (response.dccRateData) {
+                responseData.dccUsed = true;
+                responseData.dccInfo = {
+                    cardHolderAmount: response.dccRateData.cardHolderAmount,
+                    cardHolderCurrency: response.dccRateData.cardHolderCurrency,
+                    exchangeRate: response.dccRateData.cardHolderRate,
+                    merchantAmount: response.dccRateData.merchantAmount,
+                    merchantCurrency: response.dccRateData.merchantCurrency
+                };
+            }
+
             res.json({
                 success: true,
-                data: {
-                    transactionId: response.transactionId || 'txn_' + Date.now(),
-                    amount: chargeAmount,
-                    currency: chargeCurrency,
-                    status: response.responseMessage,
-                    reference: response.referenceNumber || '',
-                    timestamp: new Date().toISOString()
-                },
+                data: responseData,
                 message: successMessage,
                 timestamp: new Date().toISOString()
             });

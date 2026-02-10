@@ -2,6 +2,7 @@ package com.globalpayments.example;
 
 import com.global.api.ServicesContainer;
 import com.global.api.entities.Transaction;
+import com.global.api.entities.DccRateData;
 import com.global.api.entities.enums.Channel;
 import com.global.api.entities.enums.Environment;
 import com.global.api.entities.exceptions.ApiException;
@@ -193,9 +194,57 @@ public class ProcessPaymentServlet extends HttpServlet {
             CreditCardData card = new CreditCardData();
             card.setToken(paymentToken);
 
-            Transaction transaction = card.charge(amount)
-                    .withCurrency(validatedCurrency)
-                    .execute();
+            // Build charge request
+            var chargeBuilder = card.charge(amount).withCurrency(validatedCurrency);
+
+            // Add DCC rate data if provided (user accepted DCC)
+            if (requestData.has("dccData") && !requestData.isNull("dccData")) {
+                JSONObject dccDataJson = requestData.getJSONObject("dccData");
+                
+                DccRateData dccRateData = new DccRateData();
+                dccRateData.setDccId(dccDataJson.optString("dccId"));
+                
+                // Parse cardHolderAmount - handle both number and string from JSON
+                BigDecimal cardHolderAmount;
+                try {
+                    cardHolderAmount = dccDataJson.getBigDecimal("cardHolderAmount");
+                } catch (Exception e) {
+                    cardHolderAmount = new BigDecimal(dccDataJson.optString("cardHolderAmount", "0"));
+                }
+                // Round to whole number (minor units must be integers)
+                cardHolderAmount = cardHolderAmount.setScale(0, java.math.RoundingMode.HALF_UP);
+                dccRateData.setCardHolderAmount(cardHolderAmount);
+                
+                dccRateData.setCardHolderCurrency(dccDataJson.optString("cardHolderCurrency"));
+                dccRateData.setCardHolderRate(dccDataJson.optString("exchangeRate"));
+                
+                // Parse merchantAmount - handle both number and string from JSON
+                BigDecimal merchantAmount;
+                try {
+                    merchantAmount = dccDataJson.getBigDecimal("merchantAmount");
+                } catch (Exception e) {
+                    merchantAmount = new BigDecimal(dccDataJson.optString("merchantAmount", "0"));
+                }
+                // Round to whole number (minor units must be integers)
+                merchantAmount = merchantAmount.setScale(0, java.math.RoundingMode.HALF_UP);
+                dccRateData.setMerchantAmount(merchantAmount);
+                
+                dccRateData.setMerchantCurrency(dccDataJson.optString("merchantCurrency"));
+                dccRateData.setMarginRatePercentage(dccDataJson.optString("marginRatePercentage"));
+                
+                // Log DCC data for debugging
+                System.out.println("=== DCC Payment Request ===");
+                System.out.println("Charge Amount: " + amount + " " + validatedCurrency);
+                System.out.println("DCC ID: " + dccRateData.getDccId());
+                System.out.println("Merchant Amount: " + dccRateData.getMerchantAmount() + " " + dccRateData.getMerchantCurrency());
+                System.out.println("CardHolder Amount: " + dccRateData.getCardHolderAmount() + " " + dccRateData.getCardHolderCurrency());
+                System.out.println("Exchange Rate: " + dccRateData.getCardHolderRate());
+                System.out.println("Margin Rate: " + dccRateData.getMarginRatePercentage());
+                
+                chargeBuilder = chargeBuilder.withDccRateData(dccRateData);
+            }
+
+            Transaction transaction = chargeBuilder.execute();
 
             // Simplified validation: check for 00 or SUCCESS response code
             String responseCode = transaction.getResponseCode();
@@ -208,7 +257,7 @@ public class ProcessPaymentServlet extends HttpServlet {
                 JSONObject responseObj = new JSONObject();
                 responseObj.put("success", true);
 
-                // Simplified response structure
+                // Build response data
                 JSONObject dataObj = new JSONObject();
                 dataObj.put("transactionId", transactionId);
                 dataObj.put("amount", amount);
@@ -217,6 +266,21 @@ public class ProcessPaymentServlet extends HttpServlet {
                 dataObj.put("reference", transaction.getReferenceNumber() != null ?
                     transaction.getReferenceNumber() : "");
                 dataObj.put("timestamp", Instant.now().toString());
+
+                // Include DCC information if it was used
+                if (transaction.getDccRateData() != null) {
+                    dataObj.put("dccUsed", true);
+                    
+                    JSONObject dccInfoObj = new JSONObject();
+                    dccInfoObj.put("cardHolderAmount", transaction.getDccRateData().getCardHolderAmount());
+                    dccInfoObj.put("cardHolderCurrency", transaction.getDccRateData().getCardHolderCurrency());
+                    dccInfoObj.put("exchangeRate", transaction.getDccRateData().getCardHolderRate());
+                    dccInfoObj.put("merchantAmount", transaction.getDccRateData().getMerchantAmount());
+                    dccInfoObj.put("merchantCurrency", transaction.getDccRateData().getMerchantCurrency());
+                    
+                    dataObj.put("dccInfo", dccInfoObj);
+                }
+
                 responseObj.put("data", dataObj);
 
                 responseObj.put("message", "Payment processed successfully");

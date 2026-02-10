@@ -12,7 +12,7 @@
   "form.billing_zip.placeholder": "12345",
   "form.amount": "Amount",
   "form.amount.placeholder": "10.00",
-  "form.currency": "Currency",
+  "form.currency": "Merchant Currency",
   "form.currency.select": "Select Currency",
   "form.language": "Language",
   "form.language.select": "Select Language",

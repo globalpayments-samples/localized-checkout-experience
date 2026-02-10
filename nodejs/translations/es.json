@@ -12,7 +12,7 @@
   "form.billing_zip.placeholder": "12345",
   "form.amount": "Monto",
   "form.amount.placeholder": "10,00",
-  "form.currency": "Moneda",
+  "form.currency": "Moneda del Comerciante",
   "form.currency.select": "Seleccionar Moneda",
   "form.language": "Idioma",
   "form.language.select": "Seleccionar Idioma",
