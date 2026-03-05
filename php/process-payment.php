@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 /**
- * Card Payment Processing Script
+ * Card Payment Processing Script - GP API
  *
- * This script demonstrates card payment processing using the Global Payments SDK.
+ * This script demonstrates card payment processing using the Global Payments GP API SDK.
  * It handles tokenized card data and billing information to process payments
  * securely through the Global Payments API.
  *
@@ -19,117 +19,84 @@ declare(strict_types=1);
  */
 
 require_once 'vendor/autoload.php';
+require_once 'PaymentUtils.php';
+require_once 'services/LocaleService.php';
+require_once 'services/CurrencyConfig.php';
+require_once 'services/TranslationService.php';
 
-use Dotenv\Dotenv;
-use GlobalPayments\Api\Entities\Address;
 use GlobalPayments\Api\Entities\Exceptions\ApiException;
-use GlobalPayments\Api\PaymentMethods\CreditCardData;
-use GlobalPayments\Api\ServiceConfigs\Gateways\PorticoConfig;
-use GlobalPayments\Api\ServicesContainer;
+use Services\LocaleService;
+use Services\CurrencyConfig;
+use Services\TranslationService;
 
 ini_set('display_errors', '0');
 
-/**
- * Configure the SDK
- *
- * Sets up the Global Payments SDK with necessary credentials and settings
- * loaded from environment variables.
- *
- * @return void
- */
-function configureSdk(): void
-{
-    $dotenv = Dotenv::createImmutable(__DIR__);
-    $dotenv->load();
-
-    $config = new PorticoConfig();
-    $config->secretApiKey = $_ENV['SECRET_API_KEY'];
-    $config->developerId = '000000';
-    $config->versionNumber = '0000';
-    $config->serviceUrl = 'https://cert.api2.heartlandportico.com';
-    
-    ServicesContainer::configureService($config);
-}
-
-/**
- * Sanitize postal code by removing invalid characters
- *
- * @param string|null $postalCode The postal code to sanitize
- *
- * @return string Sanitized postal code containing only alphanumeric
- *                characters and hyphens, limited to 10 characters
- */
-function sanitizePostalCode(?string $postalCode): string
-{
-    if ($postalCode === null) {
-        return '';
-    }
-    
-    $sanitized = preg_replace('/[^a-zA-Z0-9-]/', '', $postalCode);
-    return substr($sanitized, 0, 10);
-}
-
-// Initialize SDK configuration
-configureSdk();
+// Handle CORS first
+PaymentUtils::handleCORS();
 
 try {
+    // Parse JSON input
+    $inputData = PaymentUtils::parseJsonInput();
+
+    // Handle locale and currency from request
+    $locale = $inputData['locale'] ?? null;
+    $currency = $inputData['currency'] ?? null;
+
+    // Update session with user preferences
+    if ($locale) {
+        LocaleService::setSessionLocale($locale);
+    }
+    if ($currency) {
+        LocaleService::setSessionCurrency($currency);
+    }
+
+    // Get current locale and currency (with fallbacks)
+    $currentLocale = LocaleService::getCurrentLocale();
+    $currentCurrency = $currency ? CurrencyConfig::validateCurrency($currency) : LocaleService::getCurrentCurrency();
+
     // Validate required fields
-    if (!isset($_POST['payment_token'], $_POST['billing_zip'], $_POST['amount'])) {
-        throw new ApiException('Missing required fields');
+    if (!isset($inputData['payment_token'], $inputData['billing_zip'], $inputData['amount'])) {
+        throw new ApiException(TranslationService::t('error.general', [], $currentLocale));
     }
-    
+
+    // Validate currency
+    if (!CurrencyConfig::isSupported($currentCurrency)) {
+        throw new ApiException(TranslationService::t('error.currency_not_supported', ['%currency%' => $currentCurrency], $currentLocale));
+    }
+
     // Parse and validate amount
-    $amount = floatval($_POST['amount']);
+    $amount = floatval($inputData['amount']);
     if ($amount <= 0) {
-        throw new ApiException('Invalid amount');
+        throw new ApiException(TranslationService::t('error.invalid_amount', [], $currentLocale));
     }
 
-    // Initialize payment data using tokenized card information
-    $card = new CreditCardData();
-    $card->token = $_POST['payment_token'];
+    // Get country code for currency (for GP API configuration)
+    $countryCode = CurrencyConfig::getCountryCode($currentCurrency);
 
-    // Create billing address for AVS verification
-    $address = new Address();
-    $address->postalCode = sanitizePostalCode($_POST['billing_zip']);
+    // Initialize SDK with dynamic country configuration
+    PaymentUtils::configureSdk($countryCode);
 
-    // Process the payment transaction with specified amount
-    $response = $card->charge($amount)
-        ->withAllowDuplicates(true)
-        ->withCurrency('USD')
-        ->withAddress($address)
-        ->execute();
-    
-    // Verify transaction was successful
-    if ($response->responseCode !== '00') {
-        http_response_code(400);
-        echo json_encode([
-            'success' => false,
-            'message' => 'Payment processing failed',
-            'error' => [
-                'code' => 'PAYMENT_DECLINED',
-                'details' => $response->responseMessage
-            ]
-        ]);
-        exit;
-    }
+    // Process payment using GP API with dynamic currency and country
+    $result = PaymentUtils::processPaymentWithToken(
+        $inputData['payment_token'],
+        $amount,
+        $currentCurrency,
+        $inputData,
+        $countryCode
+    );
 
-    // Return success response with transaction ID
-    echo json_encode([
-        'success' => true,
-        'message' => 'Payment successful! Transaction ID: ' . $response->transactionId,
-        'data' => [
-            'transactionId' => $response->transactionId
-        ]
-    ]);
+    // Send success response with localized message
+    $successMessage = TranslationService::t('message.success', [], $currentLocale);
+    PaymentUtils::sendSuccessResponse($result, $successMessage, $currentLocale);
+
 } catch (ApiException $e) {
-    // Handle payment processing errors
-    http_response_code(400);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Payment processing failed',
-        'error' => [
-            'code' => 'API_ERROR',
-            'details' => $e->getMessage()
-        ]
-    ]);
+    // Handle payment processing errors with localized message
+    $currentLocale = LocaleService::getCurrentLocale();
+    $errorMessage = TranslationService::t('error.payment_failed', ['%message%' => $e->getMessage()], $currentLocale);
+    PaymentUtils::sendErrorResponse(400, $errorMessage, 'API_ERROR');
+} catch (Exception $e) {
+    // Handle general errors
+    $currentLocale = LocaleService::getCurrentLocale();
+    $errorMessage = TranslationService::t('error.general', [], $currentLocale);
+    PaymentUtils::sendErrorResponse(500, $errorMessage, 'SERVER_ERROR');
 }
