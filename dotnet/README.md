@@ -67,7 +67,7 @@ GP API-based card payment processing with multi-currency and multi-language supp
    GP_API_ENVIRONMENT=sandbox
    ```
 
-   Get your credentials from: https://developer.globalpay.com/
+   Get your credentials from: https://developer.globalpayments.com/
 
 4. **Restore dependencies**:
    ```bash
@@ -327,7 +327,7 @@ var accessToken = accessTokenInfo.Token;
 
 ### Example 1: English with USD
 1. User opens page → Detects English browser → Shows English UI with USD currency
-2. Enters test card `4263970000005262`
+2. Enters test card `4263 9826 4026 9299`
 3. Clicks "Process Payment"
 4. Receives: "Payment Successful! Transaction ID: txn_xxx"
 
@@ -423,7 +423,7 @@ var accessToken = accessTokenInfo.Token;
 Use these test cards for different scenarios:
 
 **Visa - Successful**:
-- Card Number: `4263970000005262`
+- Card Number: `4263 9826 4026 9299`
 - Expiry: Any future date (e.g., `12/25`)
 - CVV: Any 3 digits (e.g., `123`)
 
@@ -431,7 +431,7 @@ Use these test cards for different scenarios:
 - Card Number: `4000120000001154`
 
 **Mastercard - Successful**:
-- Card Number: `5425230000004415`
+- Card Number: `5425 2334 2424 1200`
 
 ### Testing Different Locales
 1. Change browser language to Spanish (es)
@@ -481,7 +481,7 @@ curl -X POST http://localhost:8000/process-payment \
    GP_API_APP_KEY=your_actual_app_key
    ```
 2. Verify credentials are for GP API (not Portico/Heartland)
-3. Check credentials at https://developer.globalpay.com/
+3. Check credentials at https://developer.globalpayments.com/
 
 ### Issue: "ACTION_NOT_AUTHORIZED" error (40004)
 
@@ -536,10 +536,10 @@ This is a demonstration implementation. For production use, add:
 
 ## Links
 
-- [Global Payments Developer Portal](https://developer.globalpay.com/)
-- [GP API Documentation](https://developer.globalpay.com/api)
+- [Global Payments Developer Portal](https://developer.globalpayments.com/)
+- [GP API Documentation](https://developer.globalpayments.com/api/references-overview)
 - [.NET SDK Documentation](https://github.com/globalpayments/dotnet-sdk)
-- [GP API JavaScript SDK](https://developer.globalpay.com/sdks/javascript)
+- [GP API Reference](https://developer.globalpayments.com/api/references-overview)
 
 ## License
 

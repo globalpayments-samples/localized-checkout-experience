@@ -127,7 +127,7 @@ Processes card payment with localization support.
   "billing_zip": "12345",
   "cardDetails": {
     "cardType": "visa",
-    "cardLast4": "5262",
+    "cardLast4": "9299",
     "expiryMonth": "12",
     "expiryYear": "2025",
     "cardholderName": "Test User"
@@ -148,7 +148,7 @@ Processes card payment with localization support.
     "status": "captured",
     "paymentMethod": {
       "brand": "Visa",
-      "last4": "5262",
+      "last4": "9299",
       "expiryMonth": "12",
       "expiryYear": "2025"
     }
@@ -357,8 +357,8 @@ Processes card payment with localization support.
 ### Test Cards
 
 Use Global Payments test cards:
-- **Visa**: 4263970000005262 (CVV: 123, Exp: 12/25)
-- **Mastercard**: 5425230000004415 (CVV: 123, Exp: 12/25)
+- **Visa**: 4263 9826 4026 9299 (CVV: 123, Exp: 12/25)
+- **Mastercard**: 5425 2334 2424 1200 (CVV: 123, Exp: 12/25)
 - **Amex**: 374101000000608 (CVV: 1234, Exp: 12/25)
 
 ## Troubleshooting
@@ -405,6 +405,5 @@ JPY → JP
 
 ## Additional Documentation
 
-- See [LOCALIZATION_GUIDE.md](../LOCALIZATION_GUIDE.md) for implementation details for other languages (Node.js, Java, .NET)
-- [Global Payments API Documentation](https://developer.globalpay.com/)
-- [GP API Multi-Currency Guide](https://developer.globalpay.com/api/multi-currency)
+- [Global Payments API Documentation](https://developer.globalpayments.com/api/references-overview)
+- [GP API Reference](https://developer.globalpayments.com/api/references-overview)
