@@ -1,6 +1,6 @@
 # Localized Checkout Experience
 
-Multi-language, multi-currency card payment processing using Global Payments GP API. This project demonstrates how to build a globally accessible checkout experience with automatic locale detection, independent language and currency selection, and session-based preference persistence.
+Multi-language, multi-currency card payment processing using Global Payments GP API. This project demonstrates how to build a globally accessible checkout experience with automatic locale detection, independent language and currency selection, and session-based preference persistence. All implementations use the official Global Payments SDK (`GpApiConfig`).
 
 ## Features
 
