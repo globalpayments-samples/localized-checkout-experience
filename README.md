@@ -473,6 +473,16 @@ Each guide includes:
 - Troubleshooting guides
 - Security considerations
 
+## Community
+
+- 🌐 **Developer Portal** — [developer.globalpayments.com](https://developer.globalpayments.com)
+- 💬 **Discord** — [Join the community](https://discord.gg/myER9G9qkc)
+- 📋 **GitHub Discussions** — [github.com/globalpayments-samples](https://github.com/globalpayments-samples)
+- 📧 **Newsletter** — [Subscribe](https://www.globalpayments.com/en-gb/modals/newsletter)
+- 💼 **LinkedIn** — [Global Payments for Developers](https://www.linkedin.com/showcase/global-payments-for-developers/posts/?feedView=all)
+
+Have a question or found a bug? [Open an issue](https://github.com/globalpayments-samples/localized-checkout-experience/issues) or reach out at [communityexperience@globalpay.com](mailto:communityexperience@globalpay.com).
+
 ## License
 
 MIT License - See LICENSE file for details
