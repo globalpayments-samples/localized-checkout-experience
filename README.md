@@ -1,6 +1,6 @@
 # Localized Checkout Experience
 
-Multi-language, multi-currency card payment processing using Global Payments GP API. This project demonstrates how to build a globally accessible checkout experience with automatic locale detection, independent language and currency selection, and session-based preference persistence.
+Multi-language, multi-currency card payment processing using Global Payments GP API. This project demonstrates how to build a globally accessible checkout experience with automatic locale detection, independent language and currency selection, and session-based preference persistence. All implementations use the official Global Payments SDK (`GpApiConfig`).
 
 ## Features
 
@@ -54,7 +54,7 @@ All implementations provide identical functionality with platform-specific best 
 ## Quick Start
 
 ### Prerequisites
-- Global Payments account with GP API credentials ([Get credentials](https://developer.globalpay.com/))
+- Global Payments account with GP API credentials ([Get credentials](https://developer.globalpayments.com/))
 - Development environment for your chosen language
 
 ### Setup (Any Implementation)
@@ -224,7 +224,7 @@ Process payment with localized preferences.
 ### Test Cards (All Currencies)
 
 **Visa - Successful**:
-- Number: `4263970000005262`
+- Number: `4263 9826 4026 9299`
 - Expiry: Any future date (e.g., `12/25`)
 - CVV: Any 3 digits (e.g., `123`)
 
@@ -232,7 +232,7 @@ Process payment with localized preferences.
 - Number: `4000120000001154`
 
 **Mastercard - Successful**:
-- Number: `5425230000004415`
+- Number: `5425 2334 2424 1200`
 
 ### Testing Scenarios
 
@@ -425,7 +425,7 @@ Add these for production deployments:
 **Solution**:
 1. Verify `.env` has correct `GP_API_APP_ID` and `GP_API_APP_KEY`
 2. Ensure credentials are for GP API (not Portico/Heartland)
-3. Check credentials at https://developer.globalpay.com/
+3. Check credentials at https://developer.globalpayments.com/
 4. Verify environment is set to `sandbox` for test credentials
 
 ### Session Not Persisting
@@ -449,10 +449,10 @@ Add these for production deployments:
 
 ## Resources
 
-- [Global Payments Developer Portal](https://developer.globalpay.com/)
-- [GP API Documentation](https://developer.globalpay.com/api)
-- [GP API JavaScript SDK](https://developer.globalpay.com/sdks/javascript)
-- [Test Cards](https://developer.globalpay.com/resources/test-card-numbers)
+- [Global Payments Developer Portal](https://developer.globalpayments.com/)
+- [GP API Documentation](https://developer.globalpayments.com/api/references-overview)
+- [GP API Reference](https://developer.globalpayments.com/api/references-overview)
+- [Test Cards](https://developer.globalpayments.com/resources/test-cards)
 - [Accept-Language Header Spec](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Language)
 - [Intl.NumberFormat API](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat)
 
@@ -460,10 +460,10 @@ Add these for production deployments:
 
 For detailed implementation-specific information:
 
-- [.NET Implementation Guide](./dotnet/README.md) - 516 lines
-- [Node.js Implementation Guide](./nodejs/README.md) - 603 lines
-- [Java Implementation Guide](./java/README.md) - 612 lines
-- [PHP Implementation Guide](./php/README.md) - 411 lines
+- [.NET Implementation Guide](./dotnet/README.md) - 546 lines
+- [Node.js Implementation Guide](./nodejs/README.md) - 594 lines
+- [Java Implementation Guide](./java/README.md) - 605 lines
+- [PHP Implementation Guide](./php/README.md) - 409 lines
 
 Each guide includes:
 - Complete setup instructions
@@ -472,6 +472,16 @@ Each guide includes:
 - Testing procedures
 - Troubleshooting guides
 - Security considerations
+
+## Community
+
+- 🌐 **Developer Portal** — [developer.globalpayments.com](https://developer.globalpayments.com)
+- 💬 **Discord** — [Join the community](https://discord.gg/myER9G9qkc)
+- 📋 **GitHub Discussions** — [github.com/orgs/globalpayments/discussions](https://github.com/orgs/globalpayments/discussions)
+- 📧 **Newsletter** — [Subscribe](https://www.globalpayments.com/en-gb/modals/newsletter)
+- 💼 **LinkedIn** — [Global Payments for Developers](https://www.linkedin.com/showcase/global-payments-for-developers/posts/?feedView=all)
+
+Have a question or found a bug? [Open an issue](https://github.com/globalpayments-samples/localized-checkout-experience/issues) or reach out at [communityexperience@globalpay.com](mailto:communityexperience@globalpay.com).
 
 ## License
 
