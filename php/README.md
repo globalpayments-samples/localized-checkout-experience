@@ -17,6 +17,8 @@ GP API-based card payment processing with multi-currency and multi-language supp
 - **Error Handling**: Comprehensive exception handling with localized error messages
 - **Postal Code Validation**: Input sanitization for billing addresses
 
+---
+
 ## Files
 
 ### Core Files
@@ -42,6 +44,8 @@ GP API-based card payment processing with multi-currency and multi-language supp
 ### Frontend JavaScript
 - `js/translations.js` - Client-side i18n module
 - `js/currency-formatter.js` - Currency formatting utilities
+
+---
 
 ## API Endpoints
 
@@ -156,6 +160,21 @@ Processes card payment with localization support.
 }
 ```
 
+---
+
+## Requirements
+
+- **PHP 7.4+** with extensions:
+  - `json` - JSON encoding/decoding
+  - `session` - Session management
+  - `intl` (optional) - Enhanced locale support
+- **Composer** - Dependency management
+- **Global Payments PHP SDK** - Payment processing
+- **Symfony Translation Component** - Localization
+- **GP API Credentials** - Sandbox or production
+
+---
+
 ## Setup
 
 1. **Copy environment configuration**
@@ -194,16 +213,7 @@ Processes card payment with localization support.
    # Should show: LocaleService.php CurrencyConfig.php TranslationService.php
    ```
 
-## Requirements
-
-- **PHP 7.4+** with extensions:
-  - `json` - JSON encoding/decoding
-  - `session` - Session management
-  - `intl` (optional) - Enhanced locale support
-- **Composer** - Dependency management
-- **Global Payments PHP SDK** - Payment processing
-- **Symfony Translation Component** - Localization
-- **GP API Credentials** - Sandbox or production
+---
 
 ## Localization Configuration
 
@@ -230,6 +240,8 @@ Processes card payment with localization support.
 4. **Dynamic Configuration**: GP API country code automatically set based on currency
 5. **Translation**: All messages (errors, success, forms) translated to selected language
 6. **Formatting**: Currency amounts formatted according to locale rules (decimal separators, etc.)
+
+---
 
 ## Usage Examples
 
@@ -258,6 +270,8 @@ Processes card payment with localization support.
 // Transaction processed in USD with US country code
 // Demonstrates independent currency/language selection
 ```
+
+---
 
 ## Adding New Languages
 
@@ -301,6 +315,8 @@ Processes card payment with localization support.
    };
    ```
 
+---
+
 ## Adding New Currencies
 
 1. **Add currency to `CurrencyConfig.php`**
@@ -334,6 +350,8 @@ Processes card payment with localization support.
 
 3. **Verify GP API supports the currency** - Check with Global Payments that your merchant account supports the new currency
 
+---
+
 ## Testing
 
 ### Manual Testing
@@ -360,6 +378,8 @@ Use Global Payments test cards:
 - **Visa**: 4263 9826 4026 9299 (CVV: 123, Exp: 12/25)
 - **Mastercard**: 5425 2334 2424 1200 (CVV: 123, Exp: 12/25)
 - **Amex**: 374101000000608 (CVV: 1234, Exp: 12/25)
+
+---
 
 ## Troubleshooting
 
@@ -402,6 +422,8 @@ CAD → CA
 AUD → AU
 JPY → JP
 ```
+
+---
 
 ## Additional Documentation
 

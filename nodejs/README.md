@@ -17,6 +17,8 @@ GP API-based card payment processing with multi-currency and multi-language supp
 - **Error Handling**: Comprehensive exception handling with localized error messages
 - **ES6 Modules**: Modern JavaScript module system with import/export syntax
 
+---
+
 ## Requirements
 
 - Node.js 14.x or later
@@ -28,6 +30,8 @@ GP API-based card payment processing with multi-currency and multi-language supp
   - express-session (^1.17.3)
   - cors (^2.8.5)
   - dotenv (^16.3.1)
+
+---
 
 ## Files
 
@@ -53,6 +57,8 @@ GP API-based card payment processing with multi-currency and multi-language supp
 ### Frontend JavaScript
 - `wwwroot/js/translations.js` - Client-side i18n module
 - `wwwroot/js/currency-formatter.js` - Currency formatting utilities
+
+---
 
 ## Setup
 
@@ -91,6 +97,8 @@ GP API-based card payment processing with multi-currency and multi-language supp
    ```
    http://localhost:8000
    ```
+
+---
 
 ## API Endpoints
 
