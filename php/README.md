@@ -164,7 +164,7 @@ Processes card payment with localization support.
 
 ## Requirements
 
-- **PHP 7.4+** with extensions:
+- **PHP 8.2.35+, 8.3.36+, 8.4.27+, 8.5.12+** with extensions:
   - `json` - JSON encoding/decoding
   - `session` - Session management
   - `intl` (optional) - Enhanced locale support
