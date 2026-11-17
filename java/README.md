@@ -440,7 +440,7 @@ Use these test cards for different scenarios:
 
 **Visa - Successful**:
 - Card Number: `4263 9826 4026 9299`
-- Expiry: Any future date (e.g., `12/25`)
+- Expiry: Any future date (e.g., `12/30`)
 - CVV: Any 3 digits (e.g., `123`)
 
 **Visa - Declined (Insufficient Funds)**:
