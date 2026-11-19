@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import LocaleService from './LocaleService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -20,19 +21,22 @@ class TranslationService {
    * @returns {Object} Translation dictionary
    */
   static loadTranslations(locale) {
-    if (this.translations[locale]) {
-      return this.translations[locale];
+    // Only ever read the files we ship, an unknown code falls back to English
+    const code = LocaleService.getSupportedCodes().find(c => c === locale) || 'en';
+
+    if (this.translations[code]) {
+      return this.translations[code];
     }
 
     try {
-      const filePath = path.join(__dirname, '..', 'translations', `${locale}.json`);
+      const filePath = path.join(__dirname, '..', 'translations', `${code}.json`);
       const data = fs.readFileSync(filePath, 'utf8');
-      this.translations[locale] = JSON.parse(data);
-      return this.translations[locale];
+      this.translations[code] = JSON.parse(data);
+      return this.translations[code];
     } catch (error) {
-      console.error(`Failed to load translations for ${locale}:`, error.message);
+      console.error('Failed to load translations for %s:', code, error.message);
       // Fallback to English
-      if (locale !== 'en') {
+      if (code !== 'en') {
         return this.loadTranslations('en');
       }
       return {};
