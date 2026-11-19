@@ -19,7 +19,7 @@ GP API-based card payment processing with multi-currency and multi-language supp
 
 ## Requirements
 
-- .NET 9.0 or later
+- .NET 10.0 or later
 - Global Payments account and GP API credentials
 - NuGet packages (auto-restored):
   - GlobalPayments.Api (v9.0.16)
