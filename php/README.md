@@ -133,7 +133,7 @@ Processes card payment with localization support.
     "cardType": "visa",
     "cardLast4": "9299",
     "expiryMonth": "12",
-    "expiryYear": "2025",
+    "expiryYear": "2030",
     "cardholderName": "Test User"
   }
 }
@@ -154,7 +154,7 @@ Processes card payment with localization support.
       "brand": "Visa",
       "last4": "9299",
       "expiryMonth": "12",
-      "expiryYear": "2025"
+      "expiryYear": "2030"
     }
   }
 }
@@ -375,9 +375,9 @@ Processes card payment with localization support.
 ### Test Cards
 
 Use Global Payments test cards:
-- **Visa**: 4263 9826 4026 9299 (CVV: 123, Exp: 12/25)
-- **Mastercard**: 5425 2334 2424 1200 (CVV: 123, Exp: 12/25)
-- **Amex**: 374101000000608 (CVV: 1234, Exp: 12/25)
+- **Visa**: 4263 9826 4026 9299 (CVV: 123, Exp: 12/30)
+- **Mastercard**: 5425 2334 2424 1200 (CVV: 123, Exp: 12/30)
+- **Amex**: 374101000000608 (CVV: 1234, Exp: 12/30)
 
 ---
 
