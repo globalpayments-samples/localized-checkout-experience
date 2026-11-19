@@ -106,7 +106,7 @@ public class ProcessPaymentServlet extends HttpServlet {
             var accessTokenInfo = GpApiService.generateTransactionKey(config);
 
             if (accessTokenInfo == null || accessTokenInfo.getAccessToken() == null) {
-                throw new Exception("Failed to generate access token");
+                throw new ApiException("Failed to generate access token");
             }
 
             JSONObject responseObj = new JSONObject();
@@ -125,11 +125,21 @@ public class ProcessPaymentServlet extends HttpServlet {
 
             response.getWriter().write(responseObj.toString());
 
-        } catch (Exception e) {
+        } catch (ApiException e) {
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             JSONObject errorObj = new JSONObject();
             errorObj.put("success", false);
             errorObj.put("message", "Error loading configuration: " + e.getMessage());
+            errorObj.put("error_code", "CONFIG_ERROR");
+            errorObj.put("timestamp", Instant.now().toString());
+            response.getWriter().write(errorObj.toString());
+        } catch (Exception e) {
+            // Keep the details in the server log, the page only gets a generic message
+            log("config failed", e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            JSONObject errorObj = new JSONObject();
+            errorObj.put("success", false);
+            errorObj.put("message", "Error loading configuration: unexpected server error, see the server log");
             errorObj.put("error_code", "CONFIG_ERROR");
             errorObj.put("timestamp", Instant.now().toString());
             response.getWriter().write(errorObj.toString());
@@ -224,7 +234,13 @@ public class ProcessPaymentServlet extends HttpServlet {
 
                 response.getWriter().write(responseObj.toString());
             } else {
-                throw new Exception("Transaction declined: " + transaction.getResponseMessage());
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                JSONObject errorObj = new JSONObject();
+                errorObj.put("success", false);
+                errorObj.put("message", "Server error: Transaction declined: " + transaction.getResponseMessage());
+                errorObj.put("error_code", "SERVER_ERROR");
+                errorObj.put("timestamp", Instant.now().toString());
+                response.getWriter().write(errorObj.toString());
             }
 
         } catch (ApiException e) {
@@ -236,10 +252,12 @@ public class ProcessPaymentServlet extends HttpServlet {
             errorObj.put("timestamp", Instant.now().toString());
             response.getWriter().write(errorObj.toString());
         } catch (Exception e) {
+            // Keep the details in the server log, the page only gets a generic message
+            log("process-payment failed", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             JSONObject errorObj = new JSONObject();
             errorObj.put("success", false);
-            errorObj.put("message", "Server error: " + e.getMessage());
+            errorObj.put("message", "Server error: unexpected server error, see the server log");
             errorObj.put("error_code", "SERVER_ERROR");
             errorObj.put("timestamp", Instant.now().toString());
             response.getWriter().write(errorObj.toString());
