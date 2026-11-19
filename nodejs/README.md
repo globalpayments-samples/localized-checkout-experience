@@ -21,7 +21,7 @@ GP API-based card payment processing with multi-currency and multi-language supp
 
 ## Requirements
 
-- Node.js 14.x or later
+- Node.js 24.x or later
 - npm (Node Package Manager)
 - Global Payments account and GP API credentials
 - npm packages (auto-installed):
