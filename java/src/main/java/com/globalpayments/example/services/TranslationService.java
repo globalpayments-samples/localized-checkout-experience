@@ -22,18 +22,24 @@ public class TranslationService {
      * Load translation file for a locale
      */
     public static Map<String, String> loadTranslations(String locale) {
-        if (translations.containsKey(locale)) {
-            return translations.get(locale);
+        // Only ever read the files we ship, an unknown code falls back to English
+        String code = LocaleService.getSupportedCodes().stream()
+            .filter(c -> c.equals(locale))
+            .findFirst()
+            .orElse("en");
+
+        if (translations.containsKey(code)) {
+            return translations.get(code);
         }
 
         try {
-            String path = "/translations/" + locale + ".json";
+            String path = "/translations/" + code + ".json";
             InputStream inputStream = TranslationService.class.getResourceAsStream(path);
 
             if (inputStream == null) {
                 System.err.println("Translation file not found: " + path);
                 // Fallback to English
-                if (!locale.equals("en")) {
+                if (!code.equals("en")) {
                     return loadTranslations("en");
                 }
                 return new HashMap<>();
@@ -43,14 +49,14 @@ public class TranslationService {
             Type type = new TypeToken<Map<String, String>>(){}.getType();
             Map<String, String> localeTranslations = gson.fromJson(reader, type);
 
-            translations.put(locale, localeTranslations);
+            translations.put(code, localeTranslations);
             reader.close();
 
             return localeTranslations;
         } catch (IOException e) {
-            System.err.println("Failed to load translations for " + locale + ": " + e.getMessage());
+            System.err.println("Failed to load translations for " + code + ": " + e.getMessage());
             // Fallback to English
-            if (!locale.equals("en")) {
+            if (!code.equals("en")) {
                 return loadTranslations("en");
             }
             return new HashMap<>();

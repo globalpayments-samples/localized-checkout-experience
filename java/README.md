@@ -19,7 +19,7 @@ GP API-based card payment processing with multi-currency and multi-language supp
 
 ## Requirements
 
-- Java 11 or later (tested with Java 23)
+- Java 21 or later
 - Maven 3.6 or later
 - Global Payments account and GP API credentials
 - Dependencies (auto-installed via Maven):
