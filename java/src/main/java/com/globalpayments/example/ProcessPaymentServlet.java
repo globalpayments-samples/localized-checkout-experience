@@ -68,6 +68,9 @@ public class ProcessPaymentServlet extends HttpServlet {
 
         setCORSHeaders(response);
         response.setContentType("application/json");
+        // Without this the servlet answers in ISO-8859-1, which is not valid JSON for
+        // the native language names and currency symbols in the /config response
+        response.setCharacterEncoding("UTF-8");
 
         String path = request.getServletPath();
 
