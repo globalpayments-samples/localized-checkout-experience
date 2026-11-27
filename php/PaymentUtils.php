@@ -81,7 +81,7 @@ class PaymentUtils
             $address = new Address();
             $address->postalCode = self::sanitizePostalCode($billingData['billing_zip'] ?? '');
 
-            $response = $card->charge($amount)
+            $response = $card->charge(\Services\CurrencyConfig::toSdkAmount($amount, $currency))
                 ->withCurrency($currency)
                 ->withAddress($address)
                 ->execute();

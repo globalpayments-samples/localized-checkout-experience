@@ -81,6 +81,20 @@ namespace GlobalPayments.Services
         }
 
         /// <summary>
+        /// Amount to hand to the SDK Charge call.
+        /// The SDK always multiplies by 100 to get minor units, but GP API takes
+        /// zero decimal currencies like JPY in whole units (2500 yen is "2500"),
+        /// so those are divided by 100 first or GP charges 100 times the amount.
+        /// </summary>
+        public static decimal ToSdkAmount(decimal amount, string currencyCode)
+        {
+            var currency = GetCurrency(currencyCode);
+            return currency != null && currency.Decimals == 0
+                ? Math.Round(amount, 0, MidpointRounding.AwayFromZero) / 100
+                : amount;
+        }
+
+        /// <summary>
         /// Format amount according to currency rules
         /// </summary>
         public static string FormatAmount(decimal amount, string currencyCode)

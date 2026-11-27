@@ -94,6 +94,20 @@ public class CurrencyConfig {
     }
 
     /**
+     * Amount to hand to the SDK charge call.
+     * The SDK always multiplies by 100 to get minor units, but GP API takes
+     * zero decimal currencies like JPY in whole units (2500 yen is "2500"),
+     * so those are divided by 100 first or GP charges 100 times the amount.
+     */
+    public static java.math.BigDecimal toSdkAmount(java.math.BigDecimal amount, String currencyCode) {
+        Currency currency = getCurrency(currencyCode);
+        if (currency != null && currency.decimals == 0) {
+            return amount.setScale(0, java.math.RoundingMode.HALF_UP).movePointLeft(2);
+        }
+        return amount;
+    }
+
+    /**
      * Format amount according to currency rules
      */
     public static String formatAmount(double amount, String currencyCode) {

@@ -203,7 +203,7 @@ public class ProcessPaymentServlet extends HttpServlet {
             CreditCardData card = new CreditCardData();
             card.setToken(paymentToken);
 
-            Transaction transaction = card.charge(amount)
+            Transaction transaction = card.charge(CurrencyConfig.toSdkAmount(amount, validatedCurrency))
                     .withCurrency(validatedCurrency)
                     .execute();
 

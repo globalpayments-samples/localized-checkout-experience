@@ -335,7 +335,7 @@ public class Program
                     PostalCode = billingZip
                 };
 
-                var response = card.Charge(amount)
+                var response = card.Charge(CurrencyConfig.ToSdkAmount(amount, validatedCurrency))
                     .WithCurrency(validatedCurrency)
                     .WithAddress(address)
                     .Execute();

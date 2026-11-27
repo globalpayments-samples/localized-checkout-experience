@@ -187,7 +187,7 @@ app.post('/process-payment', async (req, res) => {
         const card = new CreditCardData();
         card.token = payment_token;
 
-        const response = await card.charge(chargeAmount)
+        const response = await card.charge(CurrencyConfig.toSdkAmount(chargeAmount, chargeCurrency))
             .withCurrency(chargeCurrency)
             .execute();
 
