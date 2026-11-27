@@ -89,7 +89,7 @@ Use GP API sandbox credentials from the Global Payments developer portal: <https
 |---|---|---|
 | Visa success | `4263970000005262` | Canonical GP-API sandbox Visa |
 | Mastercard success | `5425230000004415` | Canonical GP-API sandbox Mastercard |
-| Additional repo docs | `4263 9826 4026 9299`, `4000 1200 0000 1154`, `5425 2334 2424 1200` | Still appear in the current READMEs, so treat those as inconsistent repo docs until they are normalized |
+| Visa decline | `4000120000001154` | Returns DECLINED |
 
 ## Architecture Summary
 
