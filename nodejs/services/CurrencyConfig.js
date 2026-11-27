@@ -111,6 +111,20 @@ class CurrencyConfig {
   }
 
   /**
+   * Amount to hand to the SDK charge call.
+   * The SDK always multiplies by 100 to get minor units, but GP API takes
+   * zero decimal currencies like JPY in whole units (2500 yen is "2500"),
+   * so those are divided by 100 first or GP charges 100 times the amount.
+   * @param {number} amount - Amount the shopper entered
+   * @param {string} currencyCode - Currency code
+   * @returns {number} Amount for card.charge()
+   */
+  static toSdkAmount(amount, currencyCode) {
+    const currency = this.getCurrency(currencyCode);
+    return currency && currency.decimals === 0 ? Math.round(amount) / 100 : amount;
+  }
+
+  /**
    * Format amount according to currency rules
    * @param {number} amount - Amount to format
    * @param {string} currencyCode - Currency code

@@ -119,6 +119,23 @@ class CurrencyConfig
     }
 
     /**
+     * Amount to hand to the SDK charge call
+     *
+     * The SDK always multiplies by 100 to get minor units, but GP API takes
+     * zero decimal currencies like JPY in whole units (2500 yen is "2500"),
+     * so those are divided by 100 first or GP charges 100 times the amount.
+     *
+     * @param float $amount Amount the shopper entered
+     * @param string $currencyCode Currency code
+     * @return float Amount for $card->charge()
+     */
+    public static function toSdkAmount(float $amount, string $currencyCode): float
+    {
+        $currency = self::getCurrency($currencyCode);
+        return ($currency && $currency['decimals'] === 0) ? round($amount) / 100 : $amount;
+    }
+
+    /**
      * Format amount according to currency rules
      *
      * @param float $amount Amount to format
