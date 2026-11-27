@@ -23,6 +23,7 @@ use GlobalPayments\Api\Entities\Address;
 use GlobalPayments\Api\Entities\Enums\Channel;
 use GlobalPayments\Api\Entities\Enums\Environment;
 use GlobalPayments\Api\Entities\Enums\TransactionStatus;
+use GlobalPayments\Api\Entities\Exceptions\ApiException;
 use GlobalPayments\Api\PaymentMethods\CreditCardData;
 use GlobalPayments\Api\ServiceConfigs\Gateways\GpApiConfig;
 use GlobalPayments\Api\ServicesContainer;
@@ -114,7 +115,8 @@ class PaymentUtils
                     ]
                 ];
             } else {
-                throw new \Exception('Payment failed: ' . ($response->responseMessage ?? 'Unknown error'));
+                // A decline is a normal gateway answer, so it goes back to the page with its reason
+                throw new ApiException('Transaction declined: ' . ($response->responseMessage ?? 'Unknown error'));
             }
         } catch (\Exception $e) {
             throw $e;

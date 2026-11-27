@@ -274,11 +274,12 @@ public class Program
                     }
                 }
 
-                var paymentToken = requestData.GetProperty("payment_token").GetString() ?? "";
+                var paymentToken = requestData.TryGetProperty("payment_token", out var tokenElement) &&
+                    tokenElement.ValueKind == JsonValueKind.String ? tokenElement.GetString() ?? "" : "";
                 var currency = requestData.TryGetProperty("currency", out var currElement) ?
                     currElement.GetString() ?? "USD" : "USD";
-                var amount = requestData.TryGetProperty("amount", out var amtElement) ?
-                    amtElement.GetDecimal() : 0;
+                var amount = requestData.TryGetProperty("amount", out var amtElement) &&
+                    amtElement.ValueKind == JsonValueKind.Number ? amtElement.GetDecimal() : 0;
                 var billingZip = requestData.TryGetProperty("billing_zip", out var zipElement) ?
                     zipElement.GetString() ?? "" : "";
 
@@ -312,14 +313,14 @@ public class Program
                     }, statusCode: 400);
                 }
 
-                // Check if currency is supported
-                if (!CurrencyConfig.IsSupported(validatedCurrency))
+                // Check the currency that was sent, ValidateCurrency() would quietly turn an unknown one into USD
+                if (!CurrencyConfig.IsSupported(currency.Trim()))
                 {
                     return Results.Json(new
                     {
                         success = false,
                         message = TranslationService.T("error.currency_not_supported", currentLocale,
-                            new Dictionary<string, string> { { "currency", validatedCurrency } }),
+                            new Dictionary<string, string> { { "currency", currency } }),
                         error_code = "VALIDATION_ERROR",
                         timestamp = DateTime.UtcNow.ToString("o")
                     }, statusCode: 400);
@@ -370,7 +371,14 @@ public class Program
                 }
                 else
                 {
-                    throw new Exception($"Transaction declined: {response.ResponseMessage}");
+                    // A decline is a normal gateway answer, not a server error
+                    return Results.Json(new
+                    {
+                        success = false,
+                        message = $"Transaction declined: {response.ResponseMessage}",
+                        error_code = "PAYMENT_DECLINED",
+                        timestamp = DateTime.UtcNow.ToString("o")
+                    }, statusCode: 400);
                 }
             }
             catch (ApiException ex)

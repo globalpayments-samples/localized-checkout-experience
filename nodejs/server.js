@@ -151,7 +151,7 @@ app.post('/process-payment', async (req, res) => {
         }
 
         const chargeAmount = parseFloat(amount);
-        if (chargeAmount <= 0) {
+        if (!(chargeAmount > 0)) {
             const currentLocale = LocaleService.getCurrentLocale(req.session, req.headers['accept-language']);
             return res.status(400).json({
                 success: false,
@@ -161,17 +161,18 @@ app.post('/process-payment', async (req, res) => {
             });
         }
 
-        // Validate currency
-        const chargeCurrency = CurrencyConfig.validateCurrency(currency || 'USD');
-        if (!CurrencyConfig.isSupported(chargeCurrency)) {
+        // Validate currency (check what was sent, validateCurrency() would quietly turn it into USD)
+        const requestedCurrency = String(currency || 'USD').trim();
+        if (!CurrencyConfig.isSupported(requestedCurrency)) {
             const currentLocale = LocaleService.getCurrentLocale(req.session, req.headers['accept-language']);
             return res.status(400).json({
                 success: false,
-                message: TranslationService.t('error.currency_not_supported', currentLocale, { currency: chargeCurrency }),
+                message: TranslationService.t('error.currency_not_supported', currentLocale, { currency: requestedCurrency }),
                 error_code: 'VALIDATION_ERROR',
                 timestamp: new Date().toISOString()
             });
         }
+        const chargeCurrency = CurrencyConfig.validateCurrency(requestedCurrency);
 
         // Reconfigure SDK per-request - minimal config matching PHP PaymentUtils::configureSdk()
         // No Permissions set for payment processing (only for token generation in /config)
