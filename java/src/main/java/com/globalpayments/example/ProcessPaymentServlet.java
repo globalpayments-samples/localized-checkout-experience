@@ -185,6 +185,11 @@ public class ProcessPaymentServlet extends HttpServlet {
                 throw new ApiException("Missing required fields");
             }
 
+            // Check the currency that was sent, validateCurrency() would quietly turn an unknown one into USD
+            if (!CurrencyConfig.isSupported(currency.trim())) {
+                throw new ApiException("Currency " + currency + " is not supported");
+            }
+
             // Validate currency and get country code
             String validatedCurrency = CurrencyConfig.validateCurrency(currency);
             String countryCode = CurrencyConfig.getCountryCode(validatedCurrency);
@@ -234,11 +239,12 @@ public class ProcessPaymentServlet extends HttpServlet {
 
                 response.getWriter().write(responseObj.toString());
             } else {
-                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                // A decline is a normal gateway answer, not a server error
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 JSONObject errorObj = new JSONObject();
                 errorObj.put("success", false);
-                errorObj.put("message", "Server error: Transaction declined: " + transaction.getResponseMessage());
-                errorObj.put("error_code", "SERVER_ERROR");
+                errorObj.put("message", "Transaction declined: " + transaction.getResponseMessage());
+                errorObj.put("error_code", "PAYMENT_DECLINED");
                 errorObj.put("timestamp", Instant.now().toString());
                 response.getWriter().write(errorObj.toString());
             }

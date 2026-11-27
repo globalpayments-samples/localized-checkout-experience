@@ -52,7 +52,8 @@ try {
 
     // Get current locale and currency (with fallbacks)
     $currentLocale = LocaleService::getCurrentLocale();
-    $currentCurrency = $currency ? CurrencyConfig::validateCurrency($currency) : LocaleService::getCurrentCurrency();
+    // Check the currency that was sent, validateCurrency() would quietly turn an unknown one into USD
+    $currentCurrency = $currency ? strtoupper(trim((string) $currency)) : LocaleService::getCurrentCurrency();
 
     // Validate required fields
     if (!isset($inputData['payment_token'], $inputData['billing_zip'], $inputData['amount'])) {
@@ -93,7 +94,8 @@ try {
     // Handle payment processing errors with localized message
     $currentLocale = LocaleService::getCurrentLocale();
     $errorMessage = TranslationService::t('error.payment_failed', ['%message%' => $e->getMessage()], $currentLocale);
-    PaymentUtils::sendErrorResponse(400, $errorMessage, 'API_ERROR');
+    $errorCode = str_starts_with($e->getMessage(), 'Transaction declined') ? 'PAYMENT_DECLINED' : 'API_ERROR';
+    PaymentUtils::sendErrorResponse(400, $errorMessage, $errorCode);
 } catch (Exception $e) {
     // Handle general errors
     $currentLocale = LocaleService::getCurrentLocale();
