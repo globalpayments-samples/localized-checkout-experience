@@ -375,8 +375,8 @@ Processes card payment with localization support.
 ### Test Cards
 
 Use Global Payments test cards:
-- **Visa**: 4263 9826 4026 9299 (CVV: 123, Exp: 12/30)
-- **Mastercard**: 5425 2334 2424 1200 (CVV: 123, Exp: 12/30)
+- **Visa**: 4263 9700 0000 5262 (CVV: 123, Exp: 12/30)
+- **Mastercard**: 5425 2300 0000 4415 (CVV: 123, Exp: 12/30)
 - **Amex**: 374101000000608 (CVV: 1234, Exp: 12/30)
 
 ---

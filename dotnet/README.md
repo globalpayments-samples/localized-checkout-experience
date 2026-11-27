@@ -327,7 +327,7 @@ var accessToken = accessTokenInfo.Token;
 
 ### Example 1: English with USD
 1. User opens page → Detects English browser → Shows English UI with USD currency
-2. Enters test card `4263 9826 4026 9299`
+2. Enters test card `4263 9700 0000 5262`
 3. Clicks "Process Payment"
 4. Receives: "Payment Successful! Transaction ID: txn_xxx"
 
@@ -423,7 +423,7 @@ var accessToken = accessTokenInfo.Token;
 Use these test cards for different scenarios:
 
 **Visa - Successful**:
-- Card Number: `4263 9826 4026 9299`
+- Card Number: `4263 9700 0000 5262`
 - Expiry: Any future date (e.g., `12/30`)
 - CVV: Any 3 digits (e.g., `123`)
 
@@ -431,7 +431,7 @@ Use these test cards for different scenarios:
 - Card Number: `4000120000001154`
 
 **Mastercard - Successful**:
-- Card Number: `5425 2334 2424 1200`
+- Card Number: `5425 2300 0000 4415`
 
 ### Testing Different Locales
 1. Change browser language to Spanish (es)

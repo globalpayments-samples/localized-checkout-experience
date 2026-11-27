@@ -224,7 +224,7 @@ Process payment with localized preferences.
 ### Test Cards (All Currencies)
 
 **Visa - Successful**:
-- Number: `4263 9826 4026 9299`
+- Number: `4263 9700 0000 5262`
 - Expiry: Any future date (e.g., `12/30`)
 - CVV: Any 3 digits (e.g., `123`)
 
@@ -232,7 +232,7 @@ Process payment with localized preferences.
 - Number: `4000120000001154`
 
 **Mastercard - Successful**:
-- Number: `5425 2334 2424 1200`
+- Number: `5425 2300 0000 4415`
 
 ### Testing Scenarios
 
