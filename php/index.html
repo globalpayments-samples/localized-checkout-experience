@@ -533,7 +533,10 @@
             showLoading();
 
             const paymentToken = document.getElementById('payment-token').value;
-            const amount = parseInputAmount(document.getElementById('amount').value, getCurrency());
+            // The amount box is a number input, so its value always uses a dot for decimals
+            // whatever the currency ("25.00"). Running it through the EUR comma parser
+            // dropped the dot and sent 2500 instead of 25.
+            const amount = parseFloat(document.getElementById('amount').value);
             const billingZip = document.getElementById('billing_zip').value;
             const locale = getLocale();
             const currency = getCurrency();
