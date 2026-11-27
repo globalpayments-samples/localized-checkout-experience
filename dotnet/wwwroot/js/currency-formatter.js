@@ -223,30 +223,6 @@ function formatInputAmount(value, currency = currentCurrency) {
 }
 
 /**
- * Parse amount input to float
- * @param {string} value - Input value
- * @param {string} currency - Currency code
- * @returns {number} Parsed float value
- */
-function parseInputAmount(value, currency = currentCurrency) {
-  const config = currencyConfig[currency];
-  if (!config) return parseFloat(value) || 0;
-
-  // Normalize to use period as decimal separator
-  let normalized = value.replace(/[^\d.,]/g, '');
-
-  if (config.decimalSeparator === ',') {
-    // Replace comma with period for parsing
-    normalized = normalized.replace(/\./g, '').replace(',', '.');
-  } else {
-    // Remove commas (thousands separator)
-    normalized = normalized.replace(/,/g, '');
-  }
-
-  return parseFloat(normalized) || 0;
-}
-
-/**
  * Get currency symbol
  * @param {string} currency - Currency code
  * @returns {string} Currency symbol
